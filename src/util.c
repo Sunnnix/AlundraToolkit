@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include "util.h"
 #include <stdlib.h>
 
 int decompressStreamToFile(FILE* stream, long from, long to, const char* toPath) {

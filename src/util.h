@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stdio.h>
 
 int decompressStreamToFile(FILE* stream, long from, long to, const char* toPath);
