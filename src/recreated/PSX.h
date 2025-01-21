@@ -1,5 +1,12 @@
 #pragma once
 
+#include <cstdint>
+
+using ULONG = uint32_t;
+using LONG = int32_t;
+using undefined2 = int;
+using undefined4 = int;
+
 /*
 * All of these functions are pseudo-functions and do not work, as they are only used to illustrate the documentation of the Playstation with the MIPS architecture.
 * The documentation can be found here:
@@ -196,6 +203,20 @@ namespace PSX {
 	int CdSetDebug(int level) { return 0; }
 
 	/// <summary>
+	/// Issue primitive command to CD-ROM system.
+	/// <para>Issues the primitive command com to the CD-ROM system. param points to the arguments of the command, if any; 
+	/// set param to 0 for commands that do not require arguments.result points to a buffer used to hold the return value; 
+	/// if result is 0, the return value is not stored.</para>
+	/// <para>The values of command (com), arguments (param), and return value (result) are listed below. For the functions that are non - blocking, 
+	/// the actual transmission completion must be detected by CdSync()</para>
+	/// </summary>
+	/// <param name="com">Command code</param>
+	/// <param name="param">Pointer to command arguments</param>
+	/// <param name="result">Pointer to return value storage buffer (requires 8 bytes)</param>
+	/// <returns>1 if the command is issued successfully; 0 if failed.</returns>
+	int CdControl(unsigned char com, unsigned char* param, unsigned char* result) { return 0; }
+
+	/// <summary>
 	/// Issue primitive command to CD-ROM system (Blocking-type function).
 	/// <para>Issues the primitive command com to the CD-ROM system. param points to the arguments of the command, if any; 
 	/// set param to 0 for commands that do not require arguments.result points to a buffer used to hold the return value; 
@@ -211,6 +232,7 @@ namespace PSX {
 
 	/*
 	* Commands for CdControl, CdControlB, CdControlF
+	* 
 	* Primitive Commands:
 	* +----------------+--------+-------------+------------------------------------+
 	* | Symbol         | Code   | Type        | Contents                           |
@@ -258,6 +280,38 @@ namespace PSX {
 	* | CdlSeekL    | Status | Btrack| Etrack |        |        |        |        |        |
 	* | CdlSeekP    | Status | Min   | Sec    |        |        |        |        |        |
 	* +-------------+--------+-------+--------+--------+--------+--------+--------+--------+
+	* 
+	* CD Modes (Command argument)
+	* +-----------------+--------+----------------------------------------------+
+	* | Symbol          | Code   | Details                                      |
+	* +-----------------+--------+----------------------------------------------+
+	* | CdlModeStream   | 0x100  | Normal streaming                             |
+	* | CdlModeStream2  | 0x120  | SUB HEADER information includes              |
+	* | CdlModeSpeed    | 0x80   | Transfer speed                               |
+	* |                 |        | 0: Normal speed                              |
+	* |                 |        | 1: Double speed                              |
+	* | CdlModeRT       | 0x40   | ADPCM play                                   |
+	* |                 |        | 0: ADPCM OFF                                 |
+	* |                 |        | 1: ADPCM ON                                  |
+	* | CdlModeSize1    | 0x20   | Sector size                                  |
+	* |                 |        | 0: 2048 byte                                 |
+	* |                 |        | 1: 2340 byte                                 |
+	* | CdlModeSize0    | 0x10   | Sector size                                  |
+	* |                 |        | 0: —                                         |
+	* |                 |        | 1: 2328 byte                                 |
+	* | CdlModeSF       | 0x08   | Subheader filter                             |
+	* |                 |        | 0: Off                                       |
+	* |                 |        | 1: On                                        |
+	* | CdlModeRept     | 0x04   | Report mode                                  |
+	* |                 |        | 0: Off                                       |
+	* |                 |        | 1: On                                        |
+	* | CdlModeAP       | 0x02   | Autopause                                    |
+	* |                 |        | 0: Off                                       |
+	* |                 |        | 1: On                                        |
+	* | CdlModeDA       | 0x01   | CD-DA play                                   |
+	* |                 |        | 0: CD-DA off                                 |
+	* |                 |        | 1: CD-DA on                                  |
+	* +-----------------+--------+----------------------------------------------+
 	*/
 
 	/// <summary>
@@ -391,6 +445,121 @@ namespace PSX {
 	* f) External Digital Input Reverb On/Off (attr.ext.reverb) SPU_ON = reverb on; SPU_OFF = reverb off.
 	* g) External Digital Input Mixing On/Off (attr.cd.mix) SPU_ON = mixing on; SPU_OFF = mixing off. External digital input is not output unless mixing is on.
 	*/
+
+	/// <summary>
+	/// Transmit font pattern.
+	/// <para>Transmits the built-in text font used for debugging text output to the frame buffer. 
+	/// It loads the basic font pattern(4 - bit, 256x128) and initializes all the print streams.</para>
+	/// <para>FntLoad() must always be executed before FntOpen() and FntFlush(). 
+	/// The font area must not clash with the frame buffer area used by the application.
+	/// Font data is located at the upper left of the texture page for FntFlush().
+	/// Font data is treated as a RECT(0, 0, 32, 32) area consisting of 128 characters, each 128 x 32. 
+	/// As this is similar to the texture page area, tx is restricted to a multiple of 64 and ty is restricted to a multiple of 256. </para>
+	/// <para>Loads the Clut to location (tx, ty+128).</para>
+	/// </summary>
+	/// <param name="tx">Font pattern frame buffer address</param>
+	/// <param name="ly">Font pattern frame buffer address</param>
+	void FntLoad(long tx, long ly) {}
+
+	/// <summary>
+	/// Open a print stream.
+	/// <para>Opens the stream for on-screen printing. 
+	/// After this, character strings up to n characters long can be drawn in the(x, y) - (x + w, y + h) rectangular area of the frame buffer, 
+	/// using FntPrint().If isbg is 1, the background is cleared when a character string is drawn.</para>
+	/// <para>Up to 8 streams can be opened at once. However, once a stream is opened, it cannot be closed until the next time FntLoad() is called.</para>
+	/// <para>n specifies the maximum number of characters. Up to 1024 characters can be specified together in 8 streams</para>
+	/// </summary>
+	/// <param name="x">Display start location</param>
+	/// <param name="y">Display start location</param>
+	/// <param name="w">Display area</param>
+	/// <param name="h">Display area</param>
+	/// <param name="isbg">
+	/// Automatic clearing of background
+	/// <para>- 0: Clear background to (0, 0, 0) when display is performed</para>
+	/// <para>- 1: Do not clear background to (0, 0, 0) when display is performed</para>
+	/// </param>
+	/// <param name="n">Maximum number of characters</param>
+	/// <returns>The stream ID.</returns>
+	long FntOpen(long x, long y, long w, long h, long isbg, long n) { return 0; }
+
+	/// <summary>
+	/// Define stream for onscreen dump
+	/// <para>Sets the print stream for debug printing. 
+	/// The output of the debug printing functions can then be carried out in relation to the stream specified in id.</para>
+	/// <para>The actual display is executed by FntFlush().</para>
+	/// </summary>
+	/// <param name="id">Print stream ID</param>
+	void SetDumpFnt(long id) {}
+
+	/// <summary>
+	/// Calculate value of member tpage in a primitive.
+	/// <para>Calculates the texture page ID, and returns it.</para>
+	/// <para>The semitransparent rate is also effective for polygons on which texture mapping is not performed.</para>
+	/// <para>The texture page address is limited to a multiple of 64 in the X direction and a multiple of 256 in the Y direction.</para>
+	/// </summary>
+	/// <param name="tp">
+	/// Texture mode
+	/// <para>- 0: 4bitCLUT</para>
+	/// <para>- 1 : 8bitCLUT</para>
+	/// <para>- 2 : 16bitDirect</para>
+	/// </param>
+	/// <param name="abr">
+	/// Semitransparency rate
+	/// <para>- 0: 0.5 x Back + 0.5 x Forward</para>
+	/// <para>- 1: 1.0 x Back + 1.0 x Forward</para>
+	/// <para>- 2: 1.0 x Back - 1.0 x Forward</para>
+	/// <para>- 3: 1.0 x Back + 0.25 x Forward</para>
+	/// </param>
+	/// <param name="x">Texture page address</param>
+	/// <param name="y">Texture page address</param>
+	/// <returns>Texture page ID</returns>
+	unsigned short GetTPage(int tp, int abr, int x, int y) { return 0; }
+
+	/// <summary>
+	/// Calculate value of the CLUT member in a primitive.
+	/// <para>Calculates and returns the texture CLUT ID.</para>
+	/// <para>The CLUT address is limited to multiples of 16 in the x direction.</para>
+	/// </summary>
+	/// <param name="x">Frame buffer address of CLUT</param>
+	/// <param name="y">Frame buffer address of CLUT</param>
+	/// <returns>CLUT ID.</returns>
+	unsigned short GetClut(int x, int y) { return 0; }
+
+	/// <summary>
+	/// Translate an absolute sector number to a minute/seconds/sector time code.
+	/// <para>Calculate value for minute/second/sector from absolute sector number.</para>
+	/// </summary>
+	/// <param name="i">Absolute sector number</param>
+	/// <param name="p">Pointer to a CdlLOC structure that will be set to the position time code</param>
+	/// <returns>p</returns>
+	CdlLOC* CdIntToPos(int i, CdlLOC* p) { return 0; }
+
+	/// <summary>
+	/// Read multiple sectors from the CD-ROM.
+	/// <para>Reads one or more sectors of data from the CD-ROM to the specified buffer in memory. 
+	/// The starting position for the read is the position last specified for CdlSetloc.
+	/// Each CdRead() requires a separate CdlSetloc command.</para>
+	/// <para>CdRead() is non-blocking. Check for completion using CdReadSync() or CdReadCallback(). 
+	/// CdRead() uses CdReadyCallback() internally, so that function cannot be used with CdRead().</para>
+	/// <para>The return code from CdRead() only indicates if the command was issued successfully or not. 
+	/// For information about CD - ROM errors which occur during reading, check the result array of CdReadSync().</para>
+	/// </summary>
+	/// <param name="sectors">Read sector count</param>
+	/// <param name="buf">Pointer to read buffer</param>
+	/// <param name="mode">CD-ROM subsystem mode, as defined for CdlSetMode command of CdControl() </param>
+	/// <returns>1 if command issued successfully, otherwise 0.</returns>
+	int CdRead(int sectors, ULONG* buf, int mode) { return 0; }
+
+	/// <summary>
+	/// Check completion of CdRead() and related functions.
+	/// <para>Checks the current status of a data read operation initiated by CdRead(), CdReadFile(), 
+	/// and related functions.If mode is 0, the function waits for the operation to complete.If mode is 1, 
+	/// it returns the current status immediately.</para>
+	/// </summary>
+	/// <param name="mode">Await read completion</param>
+	/// <param name="result">Pointer to status storage buffer of command most recently completed</param>
+	/// <returns>Number of sectors remaining. If operation completed, 0 is returned. On error, -1 is returned.</returns>
+	int CdReadSync(int mode, unsigned char* result) { return 0; }
 
 }
 
