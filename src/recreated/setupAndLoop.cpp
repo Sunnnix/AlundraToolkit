@@ -42,6 +42,26 @@ int DAT_801f2eba;
 int DAT_8012e3c0;
 int DAT_801f5358;
 int DAT_801f11fc;
+undefined* ETC_USA_DATA_0;
+undefined* ETC_USA_DATA_1;
+undefined* ETC_USA_DATA_2;
+undefined1 DAT_800295b2;
+int DAT_800295b0;
+int DAT_801d7cb0;
+int DAT_801d7cb4;
+int drawEnv_clip;
+int DAT_801d7cd4;
+int DAT_801d7cd8;
+int DAT_801d7cdc;
+int drawEnv_color;
+int DAT_801d7cc8;
+int DAT_801d7ccc;
+void* DAT_801d7ce0; // function pointer?
+void* DAT_801d7ce4; // function pointer?
+int DAT_801d7ba0;
+int DAT_801d7c24;
+int* DAT_801d7ca8;
+int* DAT_801d7cac;
 
 int cdMode;
 int tmpData; // tmpData may be to small
@@ -51,6 +71,9 @@ unsigned short TexturePageIDs;
 unsigned short DAT_8012e2a0;
 
 int DATAS_BIN_HEADER[494]; // 0x7B8 / 4
+
+ULONG ETC_USA_LANG_DATA;
+ULONG* ETC_USA_LANG_DATA_PTR;
 
 // undefined functions?
 void* LAB_8002bb74;
@@ -72,12 +95,15 @@ LONG EVENT_6;
 LONG EVENT_7;
 
 // Strings
-char s_DATA_DATAS_BIN_800266a8[] = "\\DATA\\DATAS.BIN;1";
-char s_DATA_SOUND_BIN_800266bc[] = "\\DATA\\SOUND.BIN;1";
-char s_ARAN_XA_XA[] = "\\ARAN_XA.XA;1";
-char s_DATA_DATAS_BIN_800c7dd4[] = "\\DATA\\DATAS.BIN";
-char s_800266d8[] = "\\%s.;1";
-char s_800266d0[] = "\\%s;1";
+char s_DATA_DATAS_BIN_800266a8[] = "\\DATA\\DATAS.BIN;1"; // \\DATA\\DATAS.BIN;1
+char s_DATA_SOUND_BIN_800266bc[] = "\\DATA\\SOUND.BIN;1"; // \\DATA\\SOUND.BIN;1
+char s_ARAN_XA_XA[] = "\\ARAN_XA.XA;1"; // \\ARAN_XA.XA;1
+char s_DATA_DATAS_BIN_800c7dd4[] = "\\DATA\\DATAS.BIN"; // \\DATA\\DATAS.BIN
+char s_800266d8[] = "\\%s.;1"; // \\%s.;1
+char s_800266d0[] = "\\%s;1"; // \\%s;1
+char s_Etc_USA_R[]  = "DATA\\Etc_USA.R"; // DATA\\Etc_USA.R
+char s_BIZEN_80026b04[] = "BIZEN"; // BIZEN
+undefined* PTR_s_BIZEN_800c6274 = (undefined*) s_BIZEN_80026b04; // maybe a pointer to the string pointer of BIZEN to loop through all string names, as they are aligned behind each other
 
 void setupDataAndLoop() {
 	unsigned short texturePageID;
@@ -460,12 +486,136 @@ PSX::CdlFILE* getResourceFile(PSX::CdlFILE* resource_file, char* resourceName) {
 	return resource_file;
 }
 
-void LoadLanguageTexts() {
+ULONG* getGlobal_ETC_USA_DATA_VAR() { return &ETC_USA_LANG_DATA; };
 
+int getOffsetPosOf_ETC_USA_LANG_DATA(int offset) {
+	ETC_USA_LANG_DATA_PTR = &ETC_USA_LANG_DATA;
+	return (int)&ETC_USA_LANG_DATA + (unsigned int) * (unsigned short*)((int)&ETC_USA_LANG_DATA + offset * 2);
+}
+
+void LoadLanguageTexts() {
+	short* psVar1;
+	ULONG* fileDataPtr;
+	undefined** ptrLoc2;
+	undefined4 uVar2;
+	undefined* tmpPtrLoc;
+	undefined1* puVar3;
+	int currentSubPos;
+	int currentMainPos;
+	undefined1* puVar4;
+	undefined** ptrLoc3;
+
+	fileDataPtr = getGlobal_ETC_USA_DATA_VAR();
+	ReadDataFromCD(s_Etc_USA_R, fileDataPtr, 0, 0x2800); // 0x2800 basically the whole file
+	currentSubPos = 0;
+	ptrLoc2 = &ETC_USA_DATA_1;
+	ptrLoc3 = &ETC_USA_DATA_2;
+	currentMainPos = 0;
+	// Get texts headers from ETC File ?
+	do {
+		uVar2 = getOffsetPosOf_ETC_USA_LANG_DATA(currentSubPos + 512);
+		*(undefined4*)((int)&ETC_USA_DATA_0 + currentMainPos) = uVar2;
+		tmpPtrLoc = (undefined*)getOffsetPosOf_ETC_USA_LANG_DATA(currentSubPos + 640);
+		*ptrLoc2 = tmpPtrLoc;
+		tmpPtrLoc = (undefined*)getOffsetPosOf_ETC_USA_LANG_DATA(currentSubPos + 768);
+		*ptrLoc3 = tmpPtrLoc;
+		ptrLoc3 = ptrLoc3 + 2;
+		ptrLoc2 = ptrLoc2 + 2;
+		currentSubPos = currentSubPos + 1;
+		currentMainPos = currentMainPos + 8;
+	} while (currentSubPos < 98);
+	currentSubPos = 0;
+	currentMainPos = 0;
+	puVar4 = &DAT_800295b2;
+	// 
+	while (true) {
+		tmpPtrLoc = (undefined*)getOffsetPosOf_ETC_USA_LANG_DATA(currentSubPos);
+		puVar3 = puVar4;
+		do {
+			*puVar3 = *tmpPtrLoc;
+			puVar3 = puVar3 + 1;
+			tmpPtrLoc = tmpPtrLoc + 1;
+		} while ((int)puVar3 < (int)(puVar4 + 0x20));
+		psVar1 = (short*)((int)&DAT_800295b0 + currentMainPos);
+		currentMainPos = currentMainPos + 0x22;
+		if (*psVar1 == -1) break;
+		puVar4 = puVar4 + 0x22;
+		currentSubPos = currentSubPos + 1;
+	}
+	currentSubPos = 0;
+	ptrLoc2 = &PTR_s_BIZEN_800c6274;
+	// Get names from ETC File ? (256 bytes â name)
+	do {
+		tmpPtrLoc = (undefined*)getOffsetPosOf_ETC_USA_LANG_DATA(currentSubPos + 0x100);
+		*ptrLoc2 = tmpPtrLoc;
+		currentSubPos = currentSubPos + 1;
+		ptrLoc2 = ptrLoc2 + 1;
+	} while (currentSubPos < 0x100);
+}
+
+void InitDrawAndDispEnv(undefined2* param_1, int param_2, int param_3, int param_4, int param_5) {
+	*param_1 = (short)param_2;
+	param_1[1] = (short)param_3;
+	param_1[2] = 0x140;
+	param_1[3] = 0xf0;
+	param_1[4] = (short)param_4;
+	param_1[6] = 0x140;
+	param_1[7] = 0xf0;
+	param_1[5] = (short)param_5;
+	PSX::SetDefDrawEnv((PSX::DRAWENV*)(param_1 + 8), param_2, param_3, 0x140, 0xf0);
+	PSX::SetDefDispEnv((PSX::DISPENV*)(param_1 + 0x36), param_4, param_5, 0x140, 0xf0);
+	*(undefined*)(param_1 + 0x14) = 1;
+}
+
+void FUN_800430c8() {
+	short* psVar1;
+
+	// TODO
+
+	//psVar1 = DAT_801d7cac;
+	//PSX::PutDispEnv((DISPENV*)(DAT_801d7cac + 0x36));
+	//*(char*)((int)psVar1 + 0x29) = (char)drawEnv_color;
+	//*(char*)(psVar1 + 0x15) = (char)DAT_801d7cc8;
+	//*(char*)((int)psVar1 + 0x2b) = (char)DAT_801d7ccc;
+	//psVar1[8] = *psVar1 + (short)drawEnv_clip;
+	//psVar1[9] = psVar1[1] + (short)DAT_801d7cd4;
+	//psVar1[10] = (short)DAT_801d7cd8;
+	//psVar1[0xb] = (short)DAT_801d7cdc;
+	//PSX::PutDrawEnv((DRAWENV*)(psVar1 + 8));
+	//DAT_801d7cac = DAT_801d7ca8;
+	//DAT_801d7ca8 = psVar1;
+	//DAT_801d7cb0 = DAT_801d7cb0 + 1;
+}
+
+void OnDrawCompleteCallback() {
+	int rootCounter;
+
+	rootCounter = PSX::GetRCnt(0xf2000001);
+	if (*(int*)(DAT_801d7cac + 0x80) < rootCounter) {
+		*(int*)(DAT_801d7cac + 0x80) = rootCounter;
+	}
 }
 
 void drawingStuff(/*undefined4*/ void* param_1, /*undefined4*/ void* param_2) {
-
+	DAT_801d7cb0 = 0;
+	DAT_801d7cb4 = 0;
+	drawEnv_clip = 0;
+	DAT_801d7cd4 = 0;
+	DAT_801d7cd8 = 0x140;
+	DAT_801d7cdc = 0xf0;
+	drawEnv_color = 0;
+	DAT_801d7cc8 = 0;
+	DAT_801d7ccc = 0;
+	DAT_801d7ce0 = param_1;
+	DAT_801d7ce4 = param_2;
+	//InitDrawAndDispEnv(&DAT_801d7ba0, 0, 0, 0, 0xf0, 0x140, 0xf0); // (too many arguments) why Ghidra... why? TODO
+	//InitDrawAndDispEnv(&DAT_801d7c24, 0, 0xf0, 0, 0, 0x140, 0xf0);
+	DAT_801d7ca8 = &DAT_801d7ba0;
+	DAT_801d7cac = &DAT_801d7c24;
+	PSX::VSync(0);
+	FUN_800430c8();
+	PSX::SetRCnt(0xf2000001, 0xffff, 0x2010);
+	PSX::DrawSyncCallback(OnDrawCompleteCallback);
 }
 
 void SetupGlobalROTs() {

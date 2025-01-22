@@ -4,7 +4,10 @@
 
 using ULONG = uint32_t;
 using LONG = int32_t;
+using undefined = int;
+using undefined1 = int;
 using undefined2 = int;
+using undefined3 = int;
 using undefined4 = int;
 
 /*
@@ -123,6 +126,151 @@ namespace PSX {
 		/// External digital input attributes
 		/// </summary>
 		PSX::SpuExtAttr ext;
+	};
+
+	/// <summary>
+	/// Frame buffer rectangular area.
+	/// <para>Used by several library functions to specify a rectangular area of the frame buffer. 
+	/// Neither negative values, nor values exceeding the size of the frame buffer(1024x512), may be specified.</para>
+	/// </summary>
+	struct RECT {
+		/// <summary>
+		/// Top left coordinates of the rectangular area
+		/// </summary>
+		short x, y;
+		/// <summary>
+		/// Width and height of the rectangular area
+		/// </summary>
+		short w, h;
+	};
+
+	/// <summary>
+	/// Drawing environment modification primitive.
+	/// <para>Changes the drawing environment (DRAWENV) while a primitive list is being drawn. 
+	/// Use SetDrawEnv() to specify the new DRAWENV parameters.</para>
+	/// <para>This primitive affects only the drawing environment, not the display environment (see DISPENV). 
+	/// The entire drawing environment may be changed using this primitive; see also the DR_MODE primitive, 
+	/// which sets a subset of the drawing environment.</para>
+	/// </summary>
+	struct DR_ENV {
+		/// <summary>
+		/// Pointer to the next primitive in primitive list
+		/// </summary>
+		ULONG* tag;
+		/// <summary>
+		/// New drawing environment information specified by SetDrawEnv()
+		/// </summary>
+		ULONG code[15];
+	};
+
+	/// <summary>
+	/// Drawing environment.
+	/// <para>Sets basic drawing parameters, such as drawing offset and drawing clip area.</para>
+	/// <para>The GPU uses 8 bits for R, G, B internally; when writing to the frame buffer, each value is reduced to 5 bits. 
+	/// When dtd is ON, a 4x4 dither matrix is used as follows : </para>
+	/// <para>See Tables below</para>
+	/// </summary>
+	struct DRAWENV {
+		/// <summary>
+		/// Drawing area. Drawing is restricted to the area specified by clip. 
+		/// It must be within the area area(0, 0) - (1023, 511).
+		/// </summary>
+		RECT clip;
+		/// <summary>
+		/// The offsets ofs[0] and ofs[1] are added to the X and Y values, 
+		/// respectively, of all primitives before drawing. Note: Addresses after 
+		/// adding offsets are wrapped around at(-1024, -1024) - (1023, 1023).
+		/// </summary>
+		short ofs[2];
+		/// <summary>
+		/// Texture window. Specifies a rectangle inside the texture page, to be 
+		/// used for drawing textures.
+		/// </summary>
+		RECT tw;
+		/// <summary>
+		/// Initial value of texture page
+		/// </summary>
+		unsigned short tpage;
+		/// <summary>
+		/// Dithering processing flag. 0: off; 1: on
+		/// </summary>
+		unsigned char dtd;
+		/// <summary>
+		/// <para>0: drawing to display area is blocked</para>
+		/// <para>1: drawing to display area is permitted</para>
+		/// </summary>
+		unsigned char dfe;
+		/// <summary>
+		/// <para>0: Does not clear drawing area when drawing environment is set.</para>
+		/// <para>1: Paints entire clip area with brightness values (r0, g0, b0) when drawing environment is set.</para>
+		/// </summary>
+		unsigned char isbg;
+		/// <summary>
+		/// Background color. Valid only when isbg is 1.
+		/// </summary>
+		unsigned char r0, g0, b0;
+		/// <summary>
+		/// System reserved
+		/// </summary>
+		DR_ENV dr_env;
+	};
+
+	/*
+	* i = 8 bit brightness value + 1/2 * D - 4
+	* D = Dither matrix [X%4][Y%4]
+	* 
+	* 4x4 Dither Matrix
+	* +-----------------------------+
+	* | 0		8		2		10	|
+	* | 12		4		14		6	|
+	* | 3		11		1		9	|
+	* | 15		7		13		5	|
+	* +-----------------------------+
+	* 
+	* 5 bit brightness value = 1 >> 3
+	* The values which may be specified for the texture window are restricted to the following combinations:
+	* +-------------------------------------------------------------------------------------------------+
+	* | tw.w, tw.x																						|
+	* +-------------------------------------------------------------------------------------------------+
+	* | tw.w	0(=256)		8				16				32				64				128			|
+	* | tw.x	0			Multiple of		Multiple of		Multiple of		Multiple of		Multiple of	|
+	* |						8				16				32				64				128			|
+	* +-------------------------------------------------------------------------------------------------+
+	* | tw.w, tw.x																						|
+	* +-------------------------------------------------------------------------------------------------+
+	* | tw.h	0(=256)		8				16				32				64				128			|
+	* | tw.y	0			Multiple of		Multiple of		Multiple of		Multiple of		Multiple of	|
+	* |						8				16				32				64				128			|
+	* +-------------------------------------------------------------------------------------------------+
+	*/
+
+	/// <summary>
+	/// Display environment.
+	/// <para>Specifies display parameters for screen display mode, frame buffer display value, and so on.</para>
+	/// </summary>
+	struct DISPENV {
+		/// <summary>
+		/// Display area within frame buffer. Width: 256, 320, 384, 512, or 640. Height: 240 or 480.
+		/// </summary>
+		RECT disp;
+		/// <summary>
+		/// Output screen display area. 
+		/// It is calculated without regard to the value of disp, 
+		/// using the standard monitor screen upper left - hand point(0, 0) and lower right - hand point(256, 240).
+		/// </summary>
+		RECT screen;
+		/// <summary>
+		/// Interlace mode flag. 0: non-interlace; 1: interlace
+		/// </summary>
+		unsigned char isinter;
+		/// <summary>
+		/// 24-bit mode flag. 0: 16-bit mode; 1: 24-bit mode
+		/// </summary>
+		unsigned char isrgb24;
+		/// <summary>
+		/// Reserved by system
+		/// </summary>
+		unsigned char pad0, pad1;
 	};
 
 	/// <summary>
@@ -561,5 +709,108 @@ namespace PSX {
 	/// <returns>Number of sectors remaining. If operation completed, 0 is returned. On error, -1 is returned.</returns>
 	int CdReadSync(int mode, unsigned char* result) { return 0; }
 
+	/// <summary>
+	/// Set the drawing environment.
+	/// <para>The basic drawing parameters s(uch as the drawing offset and the drawing clip area) 
+	/// are set according to the values specified in env</para>
+	/// <para>The drawing environment is effective until the next time PutDrawEnv() is executed, 
+	/// or until the DR_ENV primitive is executed.</para>
+	/// </summary>
+	/// <param name="env">Pointer to drawing environment start address</param>
+	/// <returns>A pointer to the drawing environment set. On failure, returns 0.</returns>
+	DRAWENV* SetDefDrawEnv(DRAWENV* env) { return 0; }
+
+	/// <summary>
+	/// Set standard drawing environment structure.
+	/// <para>Sets the drawing area members of a DRAWENV (drawing environment) structure. 
+	/// The new drawing area is specified using the coordinates within the frame buffer of the top left corner, 
+	/// along with the width and height, of the desired rectangle.</para>
+	/// <para>See table below</para>
+	/// <para>This function does not actually change the drawing environment. 
+	/// It merely sets the members of the specified structure as desired.Use PutDrawEnv() with this structure to change the actual environment.</para>
+	/// </summary>
+	/// <param name="SetDefDrawEnv">Pointer to drawing environment</param>
+	/// <param name="x">Upper left corner of drawing area</param>
+	/// <param name="y">Upper left corner of drawing area</param>
+	/// <param name="w">Width and height of drawing area></param>
+	/// <param name="h">Width and height of drawing area</param>
+	/// <returns>The starting pointer of the drawing environment set.</returns>
+	DRAWENV* SetDefDrawEnv(DRAWENV* SetDefDrawEnv, int x, int y, int w, int h) { return 0; }
+
+	/*
+	* +-------------+-----------------------------------+-------------------------------------------+
+	* | Member		| Content							| Value										|
+	* +-------------+-----------------------------------+-------------------------------------------+
+	* | clip		| Drawing area						| (x, y, w, h)								|
+	* | ofs[2]		| Drawing offset					| (x, y)									|
+	* | tw			| Texture window					| (0, 0, 0, 0)								|
+	* | tpage		| Texture page (tp, abr, tx, ty)	| (0, 0, 640, 0)							|
+	* | dtd			| Dither processing flag			| 1 (ON)									|
+	* | dfe			| Permission flag for drawing		| 1 (drawing on display area in inhibited)	|
+	* | isbg		| Draw area clear flag				| 0 (clear: OFF)							|
+	* | r0, g0, b0	| Background color					| (0, 0, 0)									|
+	* +-------------+-----------------------------------+-------------------------------------------+
+	*/
+
+	/// <summary>
+	/// Set display environment structure members and screen display area.
+	/// <para>Sets the members of a DISPENV (display environment) structure. 
+	/// The new display area is specified using the coordinates within the frame buffer of the top left corner, 
+	/// along with the width and height, of the desired rectangle.</para>
+	/// <para>See table below</para>
+	/// <para>This function does not actually change the display environment.  
+	/// It merely sets the members of the specified structure as desired. 
+	/// Use PutDispEnv() with this structure to change the actual environment.</para>
+	/// <para>Note: While the screen width and height are set to (0, 0), internally they are processed as (256, 240).</para>
+	/// </summary>
+	/// <param name="disp">Pointer to display environment</param>
+	/// <param name="x">Upper left corner of display area</param>
+	/// <param name="y">Upper left corner of display area</param>
+	/// <param name="w">Width and height of the display area</param>
+	/// <param name="h">Width and height of the display area</param>
+	/// <returns>Pointer to the display environment set</returns>
+	DISPENV* SetDefDispEnv(DISPENV* disp, int x, int y, int w, int h) { return 0; };
+
+	/*
+	* +---------+-----------------------+---------------+
+	* | Member	| Content				| Value			|
+	* +---------+-----------------------+---------------+
+	* | disp	| Display area			| (x, y, w, h)	|
+	* | screen	| Screen display area	| (0, 0)-(0, 0)	|
+	* | isinter	| Interlace flag		| 0				|
+	* | isrgb24	| 24-bit mode flag		| 0				|
+	* +---------+-----------------------+---------------+
+	*/
+
+	/// <summary>
+	/// Set a root counter
+	/// <para>Sets the root counter in spec to the target value in target, and the mode in mode.</para>
+	/// </summary>
+	/// <param name="spec">Root counter specification</param>
+	/// <param name="target">Target value</param>
+	/// <param name="mode">Mode</param>
+	/// <returns>1 if it succeeds, and 0 otherwise. (0 is always returned if you specify RCntCNT3, since it can’t be set.)</returns>
+	LONG SetRCnt(LONG spec, unsigned short target, LONG mode) { return 0; }
+
+	/// <summary>
+	/// Get value of a root counter.
+	/// <para>Returns the current value of root counter spec. To be used when root counter spec has been set by 
+	/// SetRCnt to a polling mode(RCntMdNOINTR).</para>
+	/// </summary>
+	/// <param name="spec">Root counter</param>
+	/// <returns>The 32-bit unsigned expanded counter value. On failure, it returns -1.</returns>
+	LONG GetRCnt(LONG spec) { return 0; }
+
+	/// <summary>
+	/// Define a callback function to be called when the GPU is finished executing a primitive list.
+	/// <para>Defines a routine to be used as a callback when drawing is completed. When all requests in the queue 
+	/// have terminated, the function func is called.If func is set to 0, then any previous callback routine is 
+	/// disabled.</para>
+	/// <para>Inside the callback, subsequent drawing termination interrupts are masked. Therefore, the callback routine 
+	/// should return as soon as possible.Although the specified function is called during an interrupt, it is not an 
+	/// interrupt handler; it should be written as a normal subroutine that is called by the main interrupt handler.</para>
+	/// </summary>
+	/// <param name="func">Pointer to callback function</param>
+	void DrawSyncCallback(void* func) {}
 }
 
