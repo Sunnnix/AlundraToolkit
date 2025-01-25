@@ -9,6 +9,9 @@ using undefined1 = int;
 using undefined2 = int;
 using undefined3 = int;
 using undefined4 = int;
+using uint = unsigned int;
+using byte = char;
+using u_char = unsigned char;
 
 /*
 * All of these functions are pseudo-functions and do not work, as they are only used to illustrate the documentation of the Playstation with the MIPS architecture.
@@ -221,26 +224,26 @@ namespace PSX {
 	* 
 	* 4x4 Dither Matrix
 	* +-----------------------------+
-	* | 0		8		2		10	|
-	* | 12		4		14		6	|
-	* | 3		11		1		9	|
-	* | 15		7		13		5	|
+	* | 0       8       2       10  |
+	* | 12      4       14      6   |
+	* | 3       11      1       9   |
+	* | 15      7       13      5   |
 	* +-----------------------------+
 	* 
 	* 5 bit brightness value = 1 >> 3
 	* The values which may be specified for the texture window are restricted to the following combinations:
 	* +-------------------------------------------------------------------------------------------------+
-	* | tw.w, tw.x																						|
+	* | tw.w, tw.x                                                                                      |
 	* +-------------------------------------------------------------------------------------------------+
-	* | tw.w	0(=256)		8				16				32				64				128			|
-	* | tw.x	0			Multiple of		Multiple of		Multiple of		Multiple of		Multiple of	|
-	* |						8				16				32				64				128			|
+	* | tw.w    0(=256)     8               16              32              64              128         |
+	* | tw.x    0           Multiple of     Multiple of     Multiple of     Multiple of     Multiple of |
+	* |                     8               16              32              64              128         |
 	* +-------------------------------------------------------------------------------------------------+
-	* | tw.w, tw.x																						|
+	* | tw.w, tw.x                                                                                      |
 	* +-------------------------------------------------------------------------------------------------+
-	* | tw.h	0(=256)		8				16				32				64				128			|
-	* | tw.y	0			Multiple of		Multiple of		Multiple of		Multiple of		Multiple of	|
-	* |						8				16				32				64				128			|
+	* | tw.h    0(=256)     8               16              32              64              128         |
+	* | tw.y    0           Multiple of     Multiple of     Multiple of     Multiple of     Multiple of |
+	* |                     8               16              32              64              128         |
 	* +-------------------------------------------------------------------------------------------------+
 	*/
 
@@ -271,6 +274,196 @@ namespace PSX {
 		/// Reserved by system
 		/// </summary>
 		unsigned char pad0, pad1;
+	};
+
+	/// <summary>
+	/// Sprite of any desired size.
+	/// <para>Draws a texture-mapped rectangular area. Drawing speed for a SPRT primitive is faster than for a POLY_FT4.</para>
+	/// <para>Only even numbers can be specified for u0 and w.</para>
+	/// <para>Because the SPRT primitive has no tpage parameter, the texture page of the current drawing environment is used. 
+	/// You can change the texture page by inserting a DR_TPAGE or DR_MODE primitive into the primitive list before your SPRT primitive.</para>
+	/// </summary>
+	struct SPRT {
+		/// <summary>
+		/// Pointer to next primitive (reserved)
+		/// </summary>
+		ULONG* tag;
+		/// <summary>
+		/// ; RGB color values for sprite
+		/// </summary>
+		unsigned char r0, g0, b0;
+		/// <summary>
+		/// Primitive code (reserved)
+		/// </summary>
+		unsigned char code;
+		/// <summary>
+		/// Position of sprite (top left coordinate)
+		/// </summary>
+		short x0, y0;
+		/// <summary>
+		/// Position of sprite texture within the texture page (top left coordinate). 
+		/// u0 should be an even number.
+		/// </summary>
+		unsigned char u0, v0;
+		/// <summary>
+		/// CLUT ID used (for 4-bit/8-bit mode only)
+		/// </summary>
+		unsigned short clut;
+		/// <summary>
+		/// Width and height of sprite. w is an even number
+		/// </summary>
+		short w, h;
+	};
+
+	/// <summary>
+	/// Texture page change primitive.
+	/// <para>Changes the texture page parameter of the current drawing environment while a primitive list is being drawn. 
+	/// See the tpage member of the DRAWENV structure for more information.Use SetDrawTPage() to specify the parameters to be used.</para>
+	/// </summary>
+	struct DR_TPAGE {
+		/// <summary>
+		/// Pointer to the next primitive in primitive list
+		/// </summary>
+		ULONG* tag;
+		/// <summary>
+		/// New texture page information specified by SetDrawTPage()
+		/// </summary>
+		ULONG* code[2];
+	};
+
+	/// <summary>
+	/// Flat-shaded, texture-mapped triangle/ Flat-shaded, texture-mapped quad.
+	/// <para>POLY_FT4 draws an area demarcated by (x0, y0) - (x1, y1) - (x3, y3) - (x2, y2) while mapping the area 
+	/// demarcated by(u0, v0) - (u1, v1) - (u3, v3) - (u2, v2) in the texture pattern on the texture page tpage.</para>
+	/// <para>The actual brightness value for drawn graphics are obtained by multiplying the RGB color values from the 
+	/// texture pattern by the RGB color values given by r0, g0, b0.</para>
+	/// <para>The texture coordinates are the coordinates (0 to 255) inside the texture page corresponding to the vertices of the triangle to be drawn. 
+	/// if the texture mode is 4 - bit or 8 - bit, the texture coordinates and the actual frame buffer address are not 1 - to - 1. </para>
+	/// <para>Texture page ID is given to tpage. Using GetTPage(), the texture page ID is obtained from the address (x, y) of the buffer frame where the texture page is located.</para>
+	/// <para>A texture using CLUT gives CLUT ID to be set in clut. Using GetClut(), CLUT ID is obtained from the address(x, y) of the frame buffer where CLUT is located.</para>
+	/// <para>The size of the texture page which can be used by one drawing command is 256 x 256. One primitive can only use one texture page.</para>
+	/// <para>In the case of a quadrilateral primitive, the corners are specified in the order shown below. 
+	/// The same applies to designation of(u, v) for a texture map rectangle, and (r, g, b) for a Gouraud shaded rectangle.</para>
+	/// </summary>
+	struct POLY_FT4 {
+		/// <summary>
+		/// Pointer to the next primitive
+		/// </summary>
+		ULONG* tag; 
+			/// <summary>
+			/// RGB color values
+			/// </summary>
+			unsigned char r0, g0, b0; 
+			/// <summary>
+			/// Primitive ID(reserved)
+			/// </summary>
+			unsigned char code; 
+			/// <summary>
+			/// Vertex coordinates
+			/// </summary>
+			short x0, y0; 
+			/// <summary>
+			/// Texture coordinates
+			/// </summary>
+			unsigned char u0, v0; 
+			/// <summary>
+			/// CLUT ID(color - look - up table for 4 - bit / 8 - bit mode only)
+			/// </summary>
+			unsigned short clut; 
+			/// <summary>
+			/// Vertex coordinates
+			/// </summary>
+			short x1, y1; 
+			/// <summary>
+			/// Texture coordinates
+			/// </summary>
+			unsigned char u1, v1; 
+			/// <summary>
+			/// Texture page ID
+			/// </summary>
+			unsigned short tpage;
+			/// <summary>
+			/// Vertex coordinates
+			/// </summary>
+			short x2, y2; 
+			/// <summary>
+			/// Texture coordinates
+			/// </summary>
+			unsigned char u2, v2; 
+			/// <summary>
+			/// Reserved by the system
+			/// </summary>
+			unsigned short pad1; 
+			/// <summary>
+			/// Vertex coordinates
+			/// </summary>
+			short x3, y3; 
+			/// <summary>
+			/// Texture coordinates
+			/// </summary>
+			unsigned char u3, v3; 
+			/// <summary>
+			/// Reserved by the system
+			/// </summary>
+			unsigned short pad2; 
+	};
+
+	/*
+	* (x0, y0)                    (x1, y1)
+	*    +----------------------------+
+	*    |                            |
+	*    |                            |
+	*    |                            |
+	*    |                            |
+	*    |                            |
+	*    |                            |
+	*    |                            |
+	*    +----------------------------+
+	* (x2, y2)                    (x3, y3)
+	*/
+
+	/// <summary>
+	/// Drawing mode modification primitive
+	/// <para>Changes the texture page, texture window, dithering flag, and drawing flag parameters of the current drawing environment while a primitive list is being drawn. 
+	/// See the tpage, tw, dtd, and dfe members of the DRAWENV structure for more information.Use SetDrawMode() to specify the parameters to be used.</para>
+	/// </summary>
+	struct DR_MODE {
+		/// <summary>
+		/// Pointer to the next primitive in primitive list
+		/// </summary>
+		ULONG* tag;
+		/// <summary>
+		/// New drawing environment information as specified by SetDrawMode()
+		/// </summary>
+		ULONG code[2];
+	};
+
+	/// <summary>
+	/// Tile of any desired size.
+	/// <para>Draws a rectangular area with the specified RGB color value (r0, g0, b0). No texture mapping or shading is done. 
+	/// It is faster than the POLY_F4 primitive.</para>
+	/// </summary>
+	struct TILE {
+		/// <summary>
+		/// Pointer to next primitive(reserved)
+		/// </summary>
+		ULONG* tag;
+		/// <summary>
+		/// RGB color values for sprite
+		/// </summary>
+		u_char r0, g0, b0;
+		/// <summary>
+		/// Primitive code(reserved)
+		/// </summary>
+		u_char code;
+		/// <summary>
+		/// Position of sprite(top left coordinate)
+		/// </summary>
+		short x0, y0;
+		/// <summary>
+		/// Width and height of sprite.w is an even number
+		/// </summary>
+		short w, h;
 	};
 
 	/// <summary>
@@ -738,19 +931,20 @@ namespace PSX {
 	DRAWENV* SetDefDrawEnv(DRAWENV* SetDefDrawEnv, int x, int y, int w, int h) { return 0; }
 
 	/*
-	* +-------------+-----------------------------------+-------------------------------------------+
-	* | Member		| Content							| Value										|
-	* +-------------+-----------------------------------+-------------------------------------------+
-	* | clip		| Drawing area						| (x, y, w, h)								|
-	* | ofs[2]		| Drawing offset					| (x, y)									|
-	* | tw			| Texture window					| (0, 0, 0, 0)								|
-	* | tpage		| Texture page (tp, abr, tx, ty)	| (0, 0, 640, 0)							|
-	* | dtd			| Dither processing flag			| 1 (ON)									|
-	* | dfe			| Permission flag for drawing		| 1 (drawing on display area in inhibited)	|
-	* | isbg		| Draw area clear flag				| 0 (clear: OFF)							|
-	* | r0, g0, b0	| Background color					| (0, 0, 0)									|
-	* +-------------+-----------------------------------+-------------------------------------------+
-	*/
+	 * +-------------+-----------------------------------+-------------------------------------------+
+	 * | Member      | Content                           | Value                                     |
+	 * +-------------+-----------------------------------+-------------------------------------------+
+	 * | clip        | Drawing area                      | (x, y, w, h)                              |
+	 * | ofs[2]      | Drawing offset                    | (x, y)                                    |
+	 * | tw          | Texture window                    | (0, 0, 0, 0)                              |
+	 * | tpage       | Texture page (tp, abr, tx, ty)    | (0, 0, 640, 0)                            |
+	 * | dtd         | Dither processing flag            | 1 (ON)                                    |
+	 * | dfe         | Permission flag for drawing       | 1 (drawing on display area in inhibited)  |
+	 * | isbg        | Draw area clear flag              | 0 (clear: OFF)                            |
+	 * | r0, g0, b0  | Background color                  | (0, 0, 0)                                 |
+	 * +-------------+-----------------------------------+-------------------------------------------+
+	 */
+
 
 	/// <summary>
 	/// Set display environment structure members and screen display area.
@@ -772,15 +966,16 @@ namespace PSX {
 	DISPENV* SetDefDispEnv(DISPENV* disp, int x, int y, int w, int h) { return 0; };
 
 	/*
-	* +---------+-----------------------+---------------+
-	* | Member	| Content				| Value			|
-	* +---------+-----------------------+---------------+
-	* | disp	| Display area			| (x, y, w, h)	|
-	* | screen	| Screen display area	| (0, 0)-(0, 0)	|
-	* | isinter	| Interlace flag		| 0				|
-	* | isrgb24	| 24-bit mode flag		| 0				|
-	* +---------+-----------------------+---------------+
-	*/
+	 * +---------+-----------------------+---------------+
+	 * | Member  | Content               | Value         |
+	 * +---------+-----------------------+---------------+
+	 * | disp    | Display area          | (x, y, w, h)  |
+	 * | screen  | Screen display area   | (0, 0)-(0, 0) |
+	 * | isinter | Interlace flag        | 0             |
+	 * | isrgb24 | 24-bit mode flag      | 0             |
+	 * +---------+-----------------------+---------------+
+	 */
+
 
 	/// <summary>
 	/// Set a root counter
@@ -812,5 +1007,150 @@ namespace PSX {
 	/// </summary>
 	/// <param name="func">Pointer to callback function</param>
 	void DrawSyncCallback(void* func) {}
+
+	/// <summary>
+	/// Wait for all drawing to terminate.
+	/// <para>Waits for drawing to terminate.</para>
+	/// <para>If DrawSync(0) is used, and execution of the primitive list takes an exceptionally long time (approximately longer than 8 Vsync) to complete, 
+	/// a timeout is generated and the GPU is reset.Reasons why this might occur include an exceptionally long primitive list, 
+	/// or one that renders exceptionally large numbers of pixels. 
+	/// Another possibility is that the primitive list has been corrupted in some way.To avoid this, the application can use a loop such as:</para>
+	/// <para>while (DrawSync(1)); </para>
+	/// </summary>
+	/// <param name="mode">
+	/// <para>- 0 Wait for termination of all non-blocking functions registered in the queue</para>
+	/// <para>- 1 Return the number of positions in the current queue</para>
+	/// </param>
+	/// <returns>Number of positions in the execution queue</returns>
+	LONG DrawSync(LONG mode) { return 0; }
+
+	/// <summary>
+	/// Initialize an array to a linked list for use as an ordering table.
+	/// <para>Walks the array specified by ot and sets each element to be a pointer to the following element, 
+	/// except the last, which is set to a pointer to a special terminator value which the PlayStation uses to recognize the end 
+	/// of a primitive list.n specifies the number entries in the array.</para>
+	/// <para>To execute the OT initialized by ClearOTag(), call DrawOTag(ot).</para>
+	/// </summary>
+	/// <param name="ot">OT starting pointer</param>
+	/// <param name="n">Number of entries in OT</param>
+	ULONG* ClearOTag(ULONG *ot, int n) { return 0; }
+
+	/// <summary>
+	/// Initialize a sprite primitive.
+	/// <para>These functions initialize the primitives specified by p. Details are given below.</para>
+	/// <para>The SPRT... primitives are faster than POLY_FT4. TILE is also faster than POLY_F4.</para>
+	/// </summary>
+	/// <param name="p">Initialize a SPRT primitive.</param>
+	void SetSprt(SPRT* p) {}
+
+	/// <summary>
+	/// Inhibit shading function.
+	/// <para>Sets the shading attribute of the primitive pointed to by p to the value specified by tge.</para>
+	/// <para>When texture and shading are both ON, each pixel in the polygon is calculated as shown below from the pixel value T of the corresponding texture pattern, 
+	/// and the brightness value L corresponding to the pixel value T.</para>
+	/// <para><para>P = (T&amp;0xf8*L&amp;0xf8) / 128</para>
+	/// <para>if (p > 255) p = 255</para>
+	/// <para>if (p &lt; 0) p = 0 </para></para>
+	/// <para>When L = 128, the brightness value of the texture pattern is drawn as it is. If the value results in an overflow, the pixel value is clipped to 255 </para>
+	/// <para>When tge = 1, the brightness value is not divided, and the texture pattern value is used, as it is, as the pixel value.</para>
+	/// <para>T, L are only effective for the upper 5 bits. The lower 3 bits are discarded.</para>
+	/// <para>This function cannot be used for primitives other than POLY_FT3, POLY_FT4, SPRT, SPRT_8, and SPRT_16.</para>
+	/// <para>Although the texture number of colors is saved at intensity level of 32 when using ShadeTex, the shading brightness value is decreased from an intensity level of 256 to 32. </para>
+	/// </summary>
+	/// <param name="p">Pointer to primitive</param>
+	/// <param name="tge">Unshaded flag
+	/// <para>- 0: Shading is performed</para>
+	/// <para>- 1: Shading is not performed</para></param>
+	void SetShadeTex(void* p, int tge) {}
+
+	/// <summary>
+	/// Set the semitransparent attribute of a primitive.
+	/// <para>Sets the semitransparent attribute of the primitive specified by p to the value specified by abe. 
+	/// If semitransparent mode is enabled, then semitransparent pixels are drawn as specified by the table below.</para>
+	/// <para>Semitransparent pixels are calculated from the foreground pixels Pf and background pixels Pb as follows:</para>
+	/// <para>P = F x Pf + B x Pb</para>
+	/// <para>The rate (F, B) of semitransparency is designated by the member tpage in the primitive. 
+	/// Drawing speed is reduced because semitransparency requires reading of background brightness values.Therefore, 
+	/// do not draw primitives with semitransparent mode turned on unless they are to be displayed that way.</para>
+	/// </summary>
+	/// <param name="p">Pointer to primitive</param>
+	/// <param name="abe">Semitransparent flag
+	/// <para>- 0: semitransparent OFF</para>
+	/// <para>- 1: semitransparent ON</para></param>
+	void SetSemiTrans(void* p, int abe) {}
+
+	/// <summary>
+	/// Initialize texture page change primitive.
+	/// <para>Initializes a texture page change primitive. By registering the initialized primitive in OT using AddPrim(), the texture page can be changed while drawing.</para>
+	/// </summary>
+	/// <param name="p">Texture page setting primitive</param>
+	/// <param name="dfe">
+	/// Flag for drawing to a display area
+	/// <para>- 0: no drawing in display area</para>
+	/// <para>- 1: drawing in display area</para>
+	/// </param>
+	/// <param name="dtd">
+	/// Dither processing flag
+	/// <para>- 0: dither processing not performed</para>
+	/// <para>- 1: dither processing performed</para>
+	/// </param>
+	/// <param name="tpage">Texture page</param>
+	void SetDrawTPage(DR_TPAGE* p, int dfe, int dtd, int tpage) {}
+
+	/// <summary>
+	/// Initialize a polygon primitive
+	/// <para>These functions initialize the primitive specified by p.</para>
+	/// </summary>
+	/// <param name="p">Flat textured quadrangle primitive.</param>
+	void SetPolyFT4(POLY_FT4* p) {}
+
+	/// <summary>
+	/// Transfer data to a frame buffer.
+	/// <para>Transfers the contents of memory from the address p to the rectangular area in the frame buffer specified by recp</para>
+	/// <para>Because LoadImage() is a non-blocking function, transmission termination must be detected by DrawSync().</para>
+	/// <para>The source and destination areas are not affected by the drawing environment (clip, offset). 
+	/// The destination area must be located within a drawable area(0, 0) - (1023, 511). 
+	/// See the description of the DR_LOAD primitive.</para>
+	/// </summary>
+	/// <param name="recp">Pointer to destination rectangular area</param>
+	/// <param name="p">Pointer to main memory address of source of transmission</param>
+	/// <returns>Position of this command in the libgpu command queue.</returns>
+	int LoadImage(RECT* recp, ULONG* p) { return 0; }
+
+	/// <summary>
+	/// Clear Frame Buffer at high speed.
+	/// <para>Sets the rectangular area rect in the Frame Buffer to RGB color values (r, g, b).</para>
+	/// <para>Because this is a non-blocking function, the end of the operation must be detected using DrawSync(). 
+	/// The drawing area is not affected by the drawing environment(clip / offset).</para>
+	/// <para>When in interlace mode, use ClearImage2() instead.</para>
+	/// </summary>
+	/// <param name="rect">Pointer to rectangular area to be cleared</param>
+	/// <param name="r">Pixel values to be used for clearing</param>
+	/// <param name="g">Pixel values to be used for clearing</param>
+	/// <param name="b">Pixel values to be used for clearing</param>
+	/// <returns>Position of this command in the libgpu command queue.</returns>
+	int ClearImage(RECT* rect, unsigned char r, unsigned char g, unsigned b) { return 0; }
+
+	/// <summary>
+	/// Initialize a tile primitive.
+	/// <para>These functions initialize the primitives specified by p. Details are given below.</para>
+	/// <para>The SPRT primitives are faster than POLY_FT4. TILE is also faster than POLY_F4.</para>
+	/// </summary>
+	/// <param name="p">Initialize a TILE primitive</param>
+	void SetTile(TILE* p) {}
+
+	/// <summary>
+	/// Initialize content of a drawing mode primitive.
+	/// <para>Initializes a DR_MODE primitive. By using AddPrim() to insert a DR_MODE primitive into your primitive list, 
+	/// it is possible to change part of your drawing environment in the middle of drawing.</para>
+	/// <para>If tw is 0, the texture window is not changed.</para>
+	/// </summary>
+	/// <param name="p">Pointer to drawing mode primitive</param>
+	/// <param name="dfe">0: drawing not allowed in display area, 1: drawing allowed in display area</param>
+	/// <param name="dtd">0: dithering off, 1: dithering on.</param>
+	/// <param name="tpage">Texture page</param>
+	/// <param name="tw">Pointer to texture window</param>
+	void SetDrawMode(DR_MODE* p, int dfe, int dtd, int tpage, RECT* tw) {}
+
 }
 

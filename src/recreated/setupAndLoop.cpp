@@ -62,6 +62,35 @@ int DAT_801d7ba0;
 int DAT_801d7c24;
 int* DAT_801d7ca8;
 int* DAT_801d7cac;
+ULONG RenderOrderTables;
+ULONG RenderOrderTables2;
+ULONG* RenderOrderTablesPtr;
+ULONG* RenderOrderTablesPtr2;
+int DAT_801e70b0;
+int Texpages;
+int* TexPagesPtr;
+int SpritePrimitives; // maybe array of 4
+int texturePage; // DR_TPAGE?
+undefined1 TexTableSpritePos;
+int DAT_801c67f8;
+ULONG DATAS_BIN_DATA_SET_0; // Huge data set, probably large array of some object (TODO try to figure out the size of this data set)
+int DATAS_BIN_DATA_SET_0_SIZE;
+int* EntitySpriteTable;
+ULONG* DAT_801f395c; // image content?
+ULONG DAT_801536c0;
+ULONG SOURCE_ADDRESS;
+ULONG* DAT_801248f8;
+char* DAT_801248fc;
+int	DAT_80124900;
+int DAT_80133990;
+int DAT_801f4054;
+undefined DAT_801c47dc;
+int DAT_801c67dc;
+int DAT_801f2e3c;
+short DAT_80137990; // begin of short array?
+int DAT_801d93ec;
+int DAT_801ac6f8;
+int DAT_801ddac0; // some type of flag
 
 int cdMode;
 int tmpData; // tmpData may be to small
@@ -69,6 +98,7 @@ int tmpData; // tmpData may be to small
 LONG PRINT_STREAM_ID;
 unsigned short TexturePageIDs;
 unsigned short DAT_8012e2a0;
+unsigned short* DAT_801e6370;
 
 int DATAS_BIN_HEADER[494]; // 0x7B8 / 4
 
@@ -618,16 +648,365 @@ void drawingStuff(/*undefined4*/ void* param_1, /*undefined4*/ void* param_2) {
 	PSX::DrawSyncCallback(OnDrawCompleteCallback);
 }
 
-void SetupGlobalROTs() {
+void SetupRenderOrderTables(ULONG *param_1) {
+	PSX::ClearOTag(param_1 + 4, 0x3c0);
+	PSX::ClearOTag(param_1 + 2, 1);
+	PSX::ClearOTag(param_1 + 3, 1);
+	PSX::ClearOTag(param_1, 1);
+	PSX::ClearOTag(param_1 + 1, 1);
+}
 
+void SetupGlobalROTs() {
+	RenderOrderTablesPtr = &RenderOrderTables;
+	RenderOrderTablesPtr2 = &RenderOrderTables2;
+	//SetupRenderOrderTables(); // this function is called twice, first without params?
+	SetupRenderOrderTables(RenderOrderTablesPtr2);
 }
 
 void SetupSpriteEnvironment(/*undefined4*/ int param_1) {
+	undefined1* puVar1;
+	undefined1* TextTableSpritePosPtr;
+	PSX::SPRT* spritePrimitive;
+	PSX::DR_TPAGE* texturePagePtr;
+	int j;
+	int locOffset;
+	int groupOffset;
+	int i;
 
+	i = 0;
+	groupOffset = 0;
+	DAT_801e6370 = &DAT_8012e2a0;
+	TexPagesPtr = &Texpages;
+	DAT_801e70b0 = param_1;
+	do {
+		j = 0;
+		locOffset = 0;
+		do {
+			spritePrimitive = (PSX::SPRT*)(&SpritePrimitives + groupOffset + locOffset);
+			PSX::SetSprt(spritePrimitive);
+			PSX::SetShadeTex(spritePrimitive, 1);
+			PSX::SetSemiTrans(spritePrimitive, 0);
+			locOffset = locOffset + 20;
+			j = j + 1;
+			spritePrimitive->w = 24;
+			spritePrimitive->h = 16;
+			spritePrimitive->r0 = 128;
+			spritePrimitive->g0 = 128;
+			spritePrimitive->b0 = 128;
+		} while (j < 600);
+		i = i + 1;
+		groupOffset = groupOffset + 13600;
+	} while (i < 2);
+	texturePagePtr = (PSX::DR_TPAGE*)&texturePage;
+	groupOffset = 0;
+	do {
+		i = groupOffset + 1;
+		PSX::SetDrawTPage(texturePagePtr, 0, 0, (unsigned int)(unsigned short)TexPagesPtr[groupOffset]);
+		texturePagePtr = texturePagePtr + 1;
+		groupOffset = i;
+	} while (i < 6);
+	TextTableSpritePosPtr = &TexTableSpritePos;
+	i = 0;
+	groupOffset = 0;
+	do {
+		do {
+			puVar1 = TextTableSpritePosPtr + 2;
+			j = 0;
+			do {
+				*TextTableSpritePosPtr = (char)i;
+				puVar1[-1] = (char)j;
+				*puVar1 = (char)groupOffset;
+				puVar1 = puVar1 + 3;
+				locOffset = j + 48;
+				TextTableSpritePosPtr = TextTableSpritePosPtr + 3;
+				j = j + 24;
+			} while (locOffset < 257);
+			groupOffset = groupOffset + 16;
+		} while (groupOffset < 256);
+		i = i + 1;
+		groupOffset = 0;
+	} while (i < 6);
+}
+
+void ConvertDataForVRAM(int** outArray, int* rawData) {
+	// TODO
+}
+
+void ValidateClut(unsigned int param_1, int param_2) {
+	if (((319 < (int)param_1) || ((param_1 & 63) != 0)) || (31 < param_2 - 480U)) {
+		//ShowError("Clut Trans error!\r\n");
+		//exit();
+	}
+}
+
+void CheckAndRepositionCoords(int* posX, int* posY, int height) {
+	int tmp;
+
+	tmp = *posY;
+	*posY = tmp + height;
+	if (511 < tmp + height) {
+		*posY = 480;
+		tmp = *posX;
+		*posX = tmp + 64;
+		ValidateClut(tmp + 64, *posY);
+	}
+}
+
+void LoadImageToVRAM(ULONG* image_content, undefined4 posX, int posY, int minHeight) {
+	int height;
+	undefined4 x;
+	int y[2];
+	PSX::RECT rect;
+
+	x = posX;
+	y[0] = posY;
+	// ValidateClut(); no params passed?
+	if (0 < minHeight) {
+		do {
+			height = 512 - y[0];
+			if (minHeight < 512 - y[0]) {
+				height = minHeight;
+			}
+			minHeight = minHeight - height;
+			rect.x = (short)x;
+			rect.w = 16;
+			rect.h = (short)height;
+			rect.y = (short)y[0];
+			PSX::LoadImage(&rect, image_content);
+			PSX::DrawSync(0);
+			image_content = image_content + height * 8;
+			CheckAndRepositionCoords(&x, y, height);
+		} while (0 < minHeight);
+	}
+}
+
+void FUN_80083680(ULONG* param_1, char* param_2, int param_3) {
+	DAT_801248f8 = param_1;
+	DAT_801248fc = param_2;
+	DAT_80124900 = param_3;
+	return;
+}
+
+void FUN_800836a0(ULONG* param_1) {
+	DAT_801248f8 = param_1;
+	return;
+}
+
+int FUN_800836b0(){
+	char cVar1;
+	int iVar2;
+	unsigned int uVar3;
+	char* pcVar4;
+	int iVar5;
+
+	iVar5 = 0;
+	if (DAT_80124900 < 1) {
+		return 0;
+	}
+	do {
+		cVar1 = *DAT_801248fc;
+		pcVar4 = DAT_801248fc + 1;
+		iVar2 = DAT_80124900 + -1;
+		if (cVar1 == -0x53) {
+			pcVar4 = DAT_801248fc + 2;
+			iVar2 = DAT_80124900 + -2;
+			if ((char)DAT_801248fc[1] == 0) goto LAB_80083734;
+			uVar3 = (unsigned int)(char)DAT_801248fc[2];
+			DAT_80124900 = DAT_80124900 + -3;
+			if (uVar3 == 0) {
+				DAT_801248fc = DAT_801248fc + 3;
+				DAT_80124900 = 0;
+				return iVar5;
+			}
+			//pcVar4 = (char*)(DAT_801248f8 + -(unsigned int)(char)DAT_801248fc[1]); // TODO check negating unsigned value
+			DAT_801248fc = DAT_801248fc + 3;
+			while (uVar3 = uVar3 - 1, uVar3 != 0xffffffff) {
+				cVar1 = *pcVar4;
+				pcVar4 = pcVar4 + 1;
+				*DAT_801248f8 = cVar1;
+				DAT_801248f8 = DAT_801248f8 + 1;
+				iVar5 = iVar5 + 1;
+			}
+		}
+		else {
+		LAB_80083734:
+			DAT_80124900 = iVar2;
+			DAT_801248fc = pcVar4;
+			iVar5 = iVar5 + 1;
+			pcVar4 = (char*)DAT_801248f8 + 1;
+			*DAT_801248f8 = cVar1;
+			DAT_801248f8 = (ULONG*)pcVar4;
+		}
+		if (DAT_80124900 < 1) {
+			return iVar5;
+		}
+		if (0x7fff < iVar5) {
+			return iVar5;
+		}
+	} while (true);
+}
+
+void FUN_800837f8(void) {
+	PSX::RECT local_10;
+
+	local_10.w = 0x140;
+	local_10.x = 0;
+	local_10.y = 0;
+	local_10.h = 0x1e0;
+	PSX::ClearImage(&local_10, 0xfa, '2', '2');
+	PSX::DrawSync(0);
+	PSX::VSync(0);
+	return;
+}
+
+int FUN_8008384c(short param_1, short param_2, ULONG* param_3, int param_4, ULONG* param_5) {
+	int iVar1;
+	int iVar2;
+	int iVar3;
+	PSX::RECT local_30;
+
+	*(undefined*)(param_5 + 0x2000) = 0xfe;
+	iVar2 = 0;
+	if ((*(char*)param_3 == 'E') && (*(char*)((int)param_3 + 1) == 'Z')) {
+		iVar3 = param_4 * 0x8000 + -6;
+		FUN_80083680(param_5, (char*)((int)param_3 + 6), iVar3); // probably PSX::StSetMask
+		do {
+			FUN_800836a0(param_5); // Possible PSX::GsSetNearClip, PSX::GsSetFarClip, PSX::GsSetWorkBase
+			PSX::DrawSync(0);
+			iVar1 = FUN_800836b0();
+			if (iVar1 == 0) break;
+			iVar2 = iVar2 + iVar1;
+			local_30.w = 0x40;
+			local_30.h = 0x100;
+			local_30.x = param_1;
+			local_30.y = param_2;
+			LoadImage(&local_30, param_5);
+			param_1 = param_1 + 0x40;
+		} while (iVar2 < iVar3);
+	}
+	else {
+		do {
+			local_30.w = 0x40;
+			local_30.h = 0x100;
+			local_30.x = param_1;
+			local_30.y = param_2;
+			LoadImage(&local_30, param_3);
+			iVar2 = iVar2 + 0x8000;
+			param_3 = param_3 + 0x2000;
+			param_1 = param_1 + 0x40;
+		} while (iVar2 < param_4 * 0x8000);
+	}
+	PSX::DrawSync(0);
+	if (*(char*)(param_5 + 0x2000) != -2) {
+		printf("Memory Burst !!\n");
+		FUN_800837f8();
+	}
+	return iVar2;
+}
+
+void FUN_800839d8(ULONG* param_1, undefined4 param_2, undefined4 param_3, undefined4 param_4, ULONG* param_5) {
+	FUN_8008384c(param_2, param_3, param_1, param_4, param_5);
+}
+
+void FUN_8003cb60() {
+	int iVar1;
+	int* piVar2;
+
+	iVar1 = 0;
+	piVar2 = &DAT_80133990;
+	do {
+		*piVar2 = iVar1;
+		iVar1 = iVar1 + 1;
+		piVar2 = piVar2 + 0x20;
+	} while (iVar1 < 0x80);
+}
+
+void FUN_8003ba28() {
+	int iVar1;
+	int* piVar2;
+	PSX::DR_MODE* p;
+	int iVar3;
+	int iVar4;
+	undefined* puVar5;
+	int iVar6;
+	int iVar7;
+
+	iVar6 = 0;
+	iVar7 = 0;
+	DAT_801f4054 = 0;
+	do {
+		iVar3 = 0;
+		puVar5 = &DAT_801c47dc;
+		do {
+			PSX::SetTile((PSX::TILE*)(puVar5 + iVar6 * 0x1000));
+			PSX::SetSemiTrans((PSX::TILE*)(puVar5 + iVar6 * 0x1000), 1);
+			iVar3 = iVar3 + 1;
+			puVar5 = puVar5 + 0x10;
+		} while (iVar3 < 0x100);
+		p = (PSX::DR_MODE*)(&DAT_801c67dc + iVar7);
+		iVar7 = iVar7 + 0xc;
+		iVar6 = iVar6 + 1;
+		PSX::SetDrawMode(p, 0, 0, (uint)DAT_801f2e3c, (PSX::RECT*)0x0);
+	} while (iVar6 < 2);
+	iVar7 = 0;
+	iVar6 = 0;
+	do {
+		iVar4 = 0;
+		iVar3 = iVar6;
+		do {
+			(&DAT_80137990)[iVar3] = (short)iVar7;
+			iVar1 = DAT_801d93ec;
+			iVar4 = iVar4 + 1;
+			iVar3 = iVar6 + iVar4;
+		} while (iVar4 < 0x18);
+		iVar7 = iVar7 + 1;
+		iVar6 = iVar6 + 0x18;
+	} while (iVar7 < 0x34);
+	piVar2 = &DAT_801ac6f8;
+	iVar6 = 0;
+	if (-1 < DAT_801d93ec) {
+		do {
+			*piVar2 = iVar6;
+			iVar6 = iVar6 + 1;
+			piVar2 = piVar2 + 0xa5;
+		} while (iVar6 <= iVar1);
+	}
+	//FUN_80031cbc(); // TODO implement function
+	DAT_801ddac0 = 0xffffffff;
 }
 
 void LoadSpriteTable(char* filename, int start_data1, int end_data1, int start_data2, int end_data2) {
+	int j;
+	PSX::POLY_FT4* p;
+	PSX::POLY_FT4* pPVar1;
+	int i;
 
+	i = 0;
+	pPVar1 = (PSX::POLY_FT4*)&DAT_801c67f8;
+	do {
+		j = 0;
+		p = pPVar1;
+		do {
+			PSX::SetPolyFT4(p);
+			PSX::SetShadeTex(p, 1);
+			p->r0 = 128;
+			p->g0 = 128;
+			p->b0 = 128;
+			j = j + 1;
+			p = p + 512;
+		} while (j < 2);
+		i = i + 1;
+		pPVar1 = pPVar1 + 1;
+	} while (i < 512);
+	ReadDataFromCD(filename, &DATAS_BIN_DATA_SET_0, start_data1, end_data1 - start_data1);
+	DATAS_BIN_DATA_SET_0_SIZE = end_data1 - start_data1;
+	ConvertDataForVRAM(&EntitySpriteTable, (int*)&DATAS_BIN_DATA_SET_0);
+	LoadImageToVRAM(DAT_801f395c, 192, 480, 40);
+	ReadDataFromCD(filename, &DAT_801536c0, start_data2, end_data2 - start_data2);
+	FUN_800839d8(&DAT_801536c0, 320, 256, 8, &SOURCE_ADDRESS);
+	//FUN_8003ceec(); // empty function, maybe optimized debug function
+	FUN_8003cb60();
+	FUN_8003ba28();
 }
 
 void LoadBalanceFile() {
