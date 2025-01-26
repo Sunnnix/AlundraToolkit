@@ -12,6 +12,9 @@ using undefined4 = int;
 using uint = unsigned int;
 using byte = char;
 using u_char = unsigned char;
+using word = int32_t;
+using dword = int64_t;
+using ushort = unsigned short;
 
 /*
 * All of these functions are pseudo-functions and do not work, as they are only used to illustrate the documentation of the Playstation with the MIPS architecture.
@@ -904,6 +907,15 @@ namespace PSX {
 
 	/// <summary>
 	/// Set the drawing environment.
+	/// <para>The basic drawing parameters s(uch as the drawing offset and the drawing clip area) are set according to the values specified in env.</para>
+	/// <para>The drawing environment is effective until the next time PutDrawEnv() is executed, or until the DR_ENV primitive is executed.</para>
+	/// </summary>
+	/// <param name="env">Pointer to drawing environment start address</param>
+	/// <returns>A pointer to the drawing environment set. On failure, returns 0.</returns>
+	DRAWENV* PutDrawEnv(DRAWENV* env) { return 0; }
+
+	/// <summary>
+	/// Set the drawing environment.
 	/// <para>The basic drawing parameters s(uch as the drawing offset and the drawing clip area) 
 	/// are set according to the values specified in env</para>
 	/// <para>The drawing environment is effective until the next time PutDrawEnv() is executed, 
@@ -945,6 +957,13 @@ namespace PSX {
 	 * +-------------+-----------------------------------+-------------------------------------------+
 	 */
 
+	/// <summary>
+	/// Set the display environment.
+	/// <para>Sets a display environment according to information specified by env</para>
+	/// </summary>
+	/// <param name="env">Pointer to display environment start address</param>
+	/// <returns>A pointer to the display environment set; on failure, returns 0.</returns>
+	DISPENV* PutDispEnv(DISPENV* env) { return 0; }
 
 	/// <summary>
 	/// Set display environment structure members and screen display area.
@@ -1151,6 +1170,39 @@ namespace PSX {
 	/// <param name="tpage">Texture page</param>
 	/// <param name="tw">Pointer to texture window</param>
 	void SetDrawMode(DR_MODE* p, int dfe, int dtd, int tpage, RECT* tw) {}
+
+	/// <summary>
+	/// Initialize sound buffer memory management mechanism.
+	/// <para>Initializes memory management for the sound buffer. You specify n as the maximum number of memory blocks that will be allocated, 
+	/// and an area pointed to by top to hold a memory management table, which stores information about each block.</para>
+	/// <para>The size of the area pointed to by top must be:</para>
+	/// <para>(SPU_MALLOC_RECSIZ • (num + 1)) bytes</para>
+	/// <para>For example, to allow for 10 SpuMalloc() calls:</para>
+	/// <para>char rec[SPU_MALLOC_RECSIZ * (10 + 1)];</para>
+	/// <para>SpuInitMalloc (10, /*10 SpuMalloc calls can be made*/</para>
+	/// <para>rec); /*memory management block*/</para>
+	/// </summary>
+	/// <param name="num">Maximum number of times memory is allocated</param>
+	/// <param name="top">Pointer to the start address of the memory management table</param>
+	/// <returns>The number of memory management blocks specified.</returns>
+	LONG SpuInitMalloc(LONG num, char* top) { return 0; }
+
+	/// <summary>
+	/// Turn noise source ON/OFF for each voice.
+	/// <para>Turns noise source on or off for specific voices. Any number of voices may be specified in voice_bit by setting the bit values SPU_0CH…SPU_23CH.</para>
+	/// <para>on_off can have the following settings:</para>
+	/// <para>SPU_ON Noise source turned on for voices whose bits in voice_bit are 1</para>
+	/// <para>SPU_OFF Noise source turned off for voices whose bits in voice_bit are 1</para>
+	/// <para>SPU_BIT Noise source turned on for voices whose bits in voice_bit are 1, and turned off for voices whose bits are 0 </para>
+	/// <para>SpuSetNoiseVoice(SPU_ON, /*set noise source on*/</para>
+	/// <para>SPU_0CH | SPU_2CH); /*0 ch and 2 ch*/</para>
+	/// </summary>
+	/// <param name="on_off">An unsigned long whose low 24 bits show the current noise source on/off value for each voice (after setting). 
+	/// To check any voice, AND with the appropriate mask SPU_0CH…SPU_23CH.</param>
+	/// <param name="voice_bit">Set voice</param>
+	/// <returns>An unsigned long whose low 24 bits show the current noise source on/off value for each voice (after setting). 
+	/// To check any voice, AND with the appropriate mask SPU_0CH…SPU_23CH.</returns>
+	ULONG SpuSetNoiseVoice(LONG on_off, ULONG voice_bit) { return 0; }
 
 }
 
