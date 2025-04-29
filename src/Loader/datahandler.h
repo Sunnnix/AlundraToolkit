@@ -1,9 +1,9 @@
 #ifndef DATAHANDLER_H
 #define DATAHANDLER_H
 
+#include "level.h"
 #include <cstdint>
 #include <cstdio>
-#include "level.h"
 
 struct DataHeader
 {
@@ -30,7 +30,6 @@ class DataHandler
     DataHeader*  _dataHeader;
     char*        _globalData;
     uint32_t     _globalSize;
-    Level*       _level;
 
     public:
 
@@ -39,17 +38,18 @@ class DataHandler
 
     /// Reads to DATAS.BIN and returns 0 if succeed
     int ReadFile(const char* dataPath);
+
     /// Loads global data and returns 0 if succeed
     int LoadGlobal();
+
     /// Loads a level and returns 0 if succeed
-    int LoadLevel(uint16_t dex);
-
-    // Getters
-
-    char* GetGlobPtr()  { return _globalData; }
+    Level* LoadLevel(uint16_t dex);
 
     /// Destructor
     ~DataHandler();
+
+    // Getters
+    char* GetGlobPtr()  { return _globalData; }
 };
 
 #endif // DATAHANDLER_H
