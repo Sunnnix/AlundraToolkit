@@ -19,13 +19,10 @@ DataHandler::DataHandler()
     _fileSize = 0;
     _globalData = NULL;
     _globalSize = 0;
-    _level = NULL;
 }
 
 int DataHandler::ReadFile(const char* dataPath)
 {
-    // Open DATAS.BIN
-
     if (!_dataFile)
     {
         _dataFile = fopen(dataPath, "r+b");
@@ -37,13 +34,9 @@ int DataHandler::ReadFile(const char* dataPath)
         }
     }
 
-    // Get file size
-
     fseek(_dataFile, 0L, SEEK_END);
     _fileSize = ftell(_dataFile);
     fseek(_dataFile, 0, SEEK_SET);
-
-    // Read the header
 
     if (!_dataHeader)
     {
@@ -106,13 +99,13 @@ int DataHandler::LoadGlobal()
     return 0;
 }
 
-int DataHandler::LoadLevel(uint16_t dex)
+Level* DataHandler::LoadLevel(uint16_t dex)
 {
     if (dex > 482)
     {
         printf("Invalid argument: in DataHandler::LoadLevel()\n"
                "-> Index must be strictly smaller than 483\n");
-        return 1;
+        return nullptr;
     }
 
     uint32_t levelSize = _dataHeader->Levels[dex + 1] - _dataHeader->Levels[dex];
@@ -121,23 +114,17 @@ int DataHandler::LoadLevel(uint16_t dex)
     if (!levelData)
     {
         fprintf(stderr, "Memory allocation failed: in DataHandler::LoadLevel()\n");
-        return 1;
+        return nullptr;
     }
 
     fseek(_dataFile, _dataHeader->Levels[dex], SEEK_SET);
     fread(levelData, levelSize, 1, _dataFile);
 
-    if (_level)
-    {
-        delete _level;
-        _level = NULL;
-    }
+    Level* level = new Level(levelData, levelSize);
 
-    _level = new Level(levelData, levelSize);
+    printf("Level %d : Loaded\n", level->GetLvlID());
 
-    printf("Level %d : Loaded\n", _level->GetProperties()->LevelID);
-
-    return 0;
+    return level;
 }
 
 DataHandler::~DataHandler()
@@ -145,5 +132,4 @@ DataHandler::~DataHandler()
     if (_dataFile) fclose(_dataFile);
     delete _dataHeader;
     free(_globalData);
-    delete _level;
 }
