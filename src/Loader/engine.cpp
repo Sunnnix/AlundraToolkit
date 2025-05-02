@@ -223,24 +223,24 @@ void Engine::Run()
     const float frameDuration = 0.04f;
 
     // Record the time of the last frame
-    clock_t lastFrameTime = clock();
+    uint32_t lastFrameTime = SDL_GetTicks();
 
     // Main game loop
     while (_running)
     {
         // Capture the current time and calculate delta time (in seconds)
-        clock_t currentTime = clock();
-        float deltaTime = (float) (currentTime - lastFrameTime) * 0.001f;
+        uint32_t currentTime = SDL_GetTicks();
+        float deltaTime = (float)(currentTime - lastFrameTime) / 1000.0f;
         lastFrameTime = currentTime;
 
         // Core
         ProcessInput();
-        //CheckCollisions();
+        // CheckCollisions();
         Update(deltaTime);
         Render();
 
         // Frame limiting using SDL_Delay() to wait until the frame duration is met
-        clock_t frameEndTime = clock();
+        uint32_t frameEndTime = SDL_GetTicks();
         float frameElapsed = (float) (frameEndTime - currentTime) * 0.001f;
 
         if (frameElapsed < frameDuration)

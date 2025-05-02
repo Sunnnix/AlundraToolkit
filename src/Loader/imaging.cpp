@@ -150,6 +150,11 @@ bool Drawer::Init()
         return false;
     }
 
+    if (SDL_GL_SetSwapInterval(1) < 0)
+    {
+        fprintf(stderr, "Warning: Unable to set VSync! SDL Error: %s\n", SDL_GetError());
+    }
+
     glewExperimental = GL_TRUE;
 
     if (glewInit() != GLEW_OK)

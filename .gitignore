@@ -364,3 +364,13 @@ FodyWeavers.xsd
 
 /test
 /TILESET
+
+# VS Code
+.vscode/
+
+# Zig
+.zig-cache/
+zig-out/
+
+# Alundra DATA
+DATAS.BIN
