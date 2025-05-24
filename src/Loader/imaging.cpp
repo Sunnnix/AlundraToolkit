@@ -559,10 +559,10 @@ void Drawer::AddBatch(const Quad& dstQuad, const Rect& srcRect, int group, int p
 
     size_t baseIndex = _drawQueue.size();
 
-    _drawQueue.push_back(Vertex { dstQuad.V0.X, dstQuad.V0.Y, u0, v0, group, palDex, blendMode });
-    _drawQueue.push_back(Vertex { dstQuad.V1.X, dstQuad.V1.Y, u1, v0, group, palDex, blendMode });
-    _drawQueue.push_back(Vertex { dstQuad.V2.X, dstQuad.V2.Y, u1, v1, group, palDex, blendMode });
-    _drawQueue.push_back(Vertex { dstQuad.V3.X, dstQuad.V3.Y, u0, v1, group, palDex, blendMode });
+    _drawQueue.push_back(Vertex { (float)dstQuad.V0.X, (float)dstQuad.V0.Y, u0, v0, group, palDex, blendMode });
+    _drawQueue.push_back(Vertex { (float)dstQuad.V1.X, (float)dstQuad.V1.Y, u1, v0, group, palDex, blendMode });
+    _drawQueue.push_back(Vertex { (float)dstQuad.V2.X, (float)dstQuad.V2.Y, u1, v1, group, palDex, blendMode });
+    _drawQueue.push_back(Vertex { (float)dstQuad.V3.X, (float)dstQuad.V3.Y, u0, v1, group, palDex, blendMode });
 
     // Add indices for the EBO
     _indexQueue.push_back(baseIndex + 0);
@@ -683,10 +683,14 @@ int Palette::PalFromData(uint16_t* src, int palCount)
         for (int x = 0; x < 16; x++)
         {
             clr = *(src + (y << 4) + x);
-            Color rgba = Color { (char) ((clr & 0x001F) << 3),
-                                 (char) ((clr & 0x03E0) >> 2),
-                                 (char) ((clr & 0x7C00) >> 7),
-                                 (char) ((clr >> 15) * 0xFF) };
+            //Color rgba = Color { (char) ((clr & 0x001F) << 3),
+            //                     (char) ((clr & 0x03E0) >> 2),
+            //                     (char) ((clr & 0x7C00) >> 7),
+            //                     (char) ((clr >> 15) * 0xFF) };
+            Color rgba = Color{ (uint8_t)((clr & 0x001F) << 3),
+                                (uint8_t)((clr & 0x03E0) >> 2),
+                                (uint8_t)((clr & 0x7C00) >> 7),
+                                (uint8_t)((clr >> 15) * 0xFF) };
             _data[(y << 4) + x] = rgba;
         }
     }
