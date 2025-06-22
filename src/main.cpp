@@ -4,7 +4,11 @@
 
 int main(int argc, char* argv[]) {
 	Engine engine("test/DATAS.BIN");
-	engine.Init();
+	if (engine.Init()) {
+		printf("Initialization failed!");
+		return -1;
+	}
+
 	engine.Run();
 	return 0;
 }

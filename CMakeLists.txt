@@ -1,7 +1,4 @@
-﻿# CMakeList.txt : CMake project for FarmermanRemake, include source and define
-# project specific logic here.
-#
-cmake_minimum_required(VERSION 3.20)
+﻿cmake_minimum_required(VERSION 3.20)
 
 # Enable Hot Reload for MSVC compilers if supported.
 if (POLICY CMP0141)
@@ -44,6 +41,7 @@ find_package(OpenGL REQUIRED)
 
 file(GLOB_RECURSE SOURCES "src/*.c" "src/*.cpp")
 file(COPY ${CMAKE_SOURCE_DIR}/test DESTINATION ${CMAKE_BINARY_DIR})
+file(COPY ${CMAKE_SOURCE_DIR}/Shaders DESTINATION ${CMAKE_BINARY_DIR})
 add_executable(${PROJ_NAME} ${SOURCES})
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

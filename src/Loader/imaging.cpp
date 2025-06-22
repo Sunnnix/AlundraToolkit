@@ -13,112 +13,9 @@
 /*  |___|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~|___|  */
 /* (_____)                                   (_____) */
 
-const char* mainVertShader = R"(
-#version 330 core
-
-layout (location = 0) in vec2 aPos;
-layout (location = 1) in vec2 aTexCoord;
-layout (location = 2) in int aGroup;
-layout (location = 3) in int aPalDex;
-layout (location = 4) in int aBlendMode;
-
-out vec2 vTexCoord;
-flat out int vGroup;
-flat out int vPalDex;
-flat out int vBlendMode;
-
-uniform mat4 uProjection;
-
-void main()
-{
-    gl_Position = uProjection * vec4(aPos, 0.0, 1.0);
-    vTexCoord = aTexCoord;
-    vGroup = aGroup;
-    vPalDex = aPalDex;
-    vBlendMode = aBlendMode;
-}   )";
-
-const char* mainFragShader = R"(
-#version 330 core
-
-in vec2 vTexCoord;
-flat in int vGroup;
-flat in int vPalDex;
-flat in int vBlendMode;
-
-layout (location = 0) out vec4 FragColor;
-layout (location = 1) out vec4 BlendFact;
-
-uniform usampler2D uAtlas;
-uniform sampler2D uPalette;
-
-const float invPalW = 1.0 / 96.0;
-const float invPalH = 1.0 / 32.0;
-
-const vec2 blendModes[5] = vec2[]
-(
-    vec2(1.0, 0.0),  // Disabled
-    vec2(0.5, 0.5),  // Mean
-    vec2(1.0, 1.0),  // Additive
-    vec2(-1.0, 1.0), // Subtractive
-    vec2(0.25, 1.0)  // Overlay
-);
-
-void main()
-{
-    // Get the palette index
-    float logicalX = vTexCoord.x * 256;
-    int nibbleMask = int((logicalX - 2 * floor(logicalX * 0.5)) < 1.0);
-    uvec4 atlasSample = texture(uAtlas, vTexCoord);
-    uint byteVal = atlasSample.r;
-    uint index = (byteVal >> (nibbleMask * 4)) & 0xFu;
-
-    // Get the color
-    float palU = (float(vGroup) * 16 + float(index) + 0.5) * invPalW;
-    float palV = (float(vPalDex) + 0.5) * invPalH;
-    vec4 color = texture(uPalette, vec2(palU, palV));
-
-    // Handle transparency
-    bool STPoff = color.a == 0.0;
-    bool isBlack = color.r == 0.0 && color.g == 0.0 && color.b == 0.0;
-    if (STPoff && isBlack) discard;
-    vec2 blend = blendModes[int(STPoff) * vBlendMode];
-
-    FragColor = blend.x * color;
-    BlendFact = vec4(blend.y);
-}   )";
-
-const char* screenVertShader = R"(
-#version 330 core
-
-layout (location = 0) in vec2 aPos;
-layout (location = 1) in vec2 aTexCoord;
-out vec2 vTexCoord;
-
-uniform mat4 uProjection;
-
-void main()
-{
-    gl_Position = uProjection * vec4(aPos, 0.0, 1.0);
-    vTexCoord = aTexCoord;
-}   )";
-
-const char* screenFragShader = R"(
-#version 330 core
-
-in vec2 vTexCoord;
-out vec4 FragColor;
-
-uniform sampler2D uScreenTexture;
-
-void main()
-{
-    FragColor = texture(uScreenTexture, vTexCoord);
-}   )";
-
 Drawer::Drawer()
     : _window(nullptr), _glContext(nullptr),
-      _mainShader(0), _screenShader(0), _frameBuffer(0),
+      _mainShader(nullptr), _screenShader(nullptr), _frameBuffer(0),
       _winW(0), _winH(0), _fullscreen(false), _aspectRatio(true) {}
 
 bool Drawer::Init()
@@ -164,12 +61,12 @@ bool Drawer::Init()
         return false;
     }
 
-    CompileShaders();
+    _mainShader = new Shader("Shaders/MainShader");
+    _screenShader = new Shader("Shaders/ScreenShader");
 
     // Set projections
     UpdateScreenProjection();
-    glUseProgram(_mainShader);
-    glUniformMatrix4fv(glGetUniformLocation(_mainShader, "uProjection"), 1, GL_FALSE, &_projection[0][0]);
+    _mainShader->uniformMat4("uProjection", _projection);
 
     // Create the framebuffer
     glGenFramebuffers(1, &_frameBuffer);
@@ -259,11 +156,6 @@ bool Drawer::Init()
     _VBOSize = _drawQueue.capacity() * sizeof(Vertex);
     glBufferData(GL_ARRAY_BUFFER, _VBOSize, nullptr, GL_STREAM_DRAW);
 
-    // Set locations
-    _screenLoc = glGetUniformLocation(_screenShader, "uScreenTexture");
-    _atlasLoc = glGetUniformLocation(_mainShader, "uAtlas");
-    _paletteLoc = glGetUniformLocation(_mainShader, "uPalette");
-
     // Define vertex attributes
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
@@ -303,17 +195,15 @@ void Drawer::DrawFrame()
     glClearColor(_bgColor[0], _bgColor[1], _bgColor[2], 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    glUseProgram(_mainShader);
-
     // Bind the atlas to unit 0
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _atlasTexID);
-    glUniform1i(_atlasLoc, 0);
+    _mainShader->uniformInt("uAtlas", 0);
 
     // Bind the palette to unit 1
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, _palTexID);
-    glUniform1i(_paletteLoc, 1);
+    _mainShader->uniformInt("uPalette", 1);
 
     // Enable dual-source blending
     glEnable(GL_BLEND);
@@ -367,12 +257,11 @@ void Drawer::DrawFrame()
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    glUseProgram(_screenShader);
-
     // Bind the frame to unit 0
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _frameTexID);
-    glUniform1i(_screenLoc, 0);
+    _screenShader->uniformInt("uScreenTexture", 0);
+    _screenShader->uniformInt("uPalette", 0);
 
     // Render to the screen
     glBindVertexArray(_screenVAO);
@@ -382,73 +271,6 @@ void Drawer::DrawFrame()
     // Clean the queues
     _drawQueue.clear();
     _indexQueue.clear();
-}
-
-void Drawer::CompileShaders()
-{
-    // Compile and link main shader
-    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &mainVertShader, nullptr);
-    glCompileShader(vertexShader);
-
-    if (!CheckShaderCompile(vertexShader, "Vertex Shader"))
-    {
-        fprintf(stderr, "Vertex shader failed to compile\n");
-    }
-
-    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &mainFragShader, nullptr);
-    glCompileShader(fragmentShader);
-
-    if (!CheckShaderCompile(fragmentShader, "Fragment Shader"))
-    {
-        fprintf(stderr, "Fragment shader failed to compile\n");
-    }
-
-    _mainShader = glCreateProgram();
-    glAttachShader(_mainShader, vertexShader);
-    glAttachShader(_mainShader, fragmentShader);
-    glLinkProgram(_mainShader);
-
-    if (!CheckProgramLink(_mainShader))
-    {
-        fprintf(stderr, "Shader program failed to link\n");
-    }
-
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-
-    // Compile and link screen shader
-    vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &screenVertShader, nullptr);
-    glCompileShader(vertexShader);
-
-    if (!CheckShaderCompile(vertexShader, "Vertex Shader"))
-    {
-        fprintf(stderr, "Vertex shader failed to compile\n");
-    }
-
-    fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &screenFragShader, nullptr);
-    glCompileShader(fragmentShader);
-
-    if (!CheckShaderCompile(fragmentShader, "Fragment Shader"))
-    {
-        fprintf(stderr, "Fragment shader failed to compile\n");
-    }
-
-    _screenShader = glCreateProgram();
-    glAttachShader(_screenShader, vertexShader);
-    glAttachShader(_screenShader, fragmentShader);
-    glLinkProgram(_screenShader);
-
-    if (!CheckProgramLink(_screenShader))
-    {
-        fprintf(stderr, "Shader program failed to link\n");
-    }
-
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
 }
 
 void Drawer::ToggleFullscreen()
@@ -546,8 +368,7 @@ void Drawer::UpdateScreenProjection()
     glm::mat4 projection = ortho * model;
 
     // Update projection uniform
-    glUseProgram(_screenShader);
-    glUniformMatrix4fv(glGetUniformLocation(_screenShader, "uProjection"), 1, GL_FALSE, &projection[0][0]);
+    _screenShader->uniformMat4("uProjection", projection);
 }
 
 void Drawer::AddBatch(const Quad& dstQuad, const Rect& srcRect, int group, int palDex, int blendMode)
@@ -571,38 +392,6 @@ void Drawer::AddBatch(const Quad& dstQuad, const Rect& srcRect, int group, int p
     _indexQueue.push_back(baseIndex + 1);
     _indexQueue.push_back(baseIndex + 2);
     _indexQueue.push_back(baseIndex + 3);
-}
-
-bool Drawer::CheckShaderCompile(GLuint shader, const char* shaderName)
-{
-    GLint success;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-
-    if (!success)
-    {
-        char log[512];
-        glGetShaderInfoLog(shader, 512, nullptr, log);
-        fprintf(stderr, "%s Compilation Error: %s\n", shaderName, log);
-        return false;
-    }
-
-    return true;
-}
-
-bool Drawer::CheckProgramLink(GLuint program)
-{
-    GLint success;
-    glGetProgramiv(program, GL_LINK_STATUS, &success);
-
-    if (!success)
-    {
-        char log[512];
-        glGetProgramInfoLog(program, 512, nullptr, log);
-        fprintf(stderr, "Shader Program Linking Error: %s\n", log);
-        return false;
-    }
-
-    return true;
 }
 
 bool Drawer::CheckGLError(const char* errorMessage)
@@ -638,8 +427,8 @@ bool Drawer::CheckExtension(const char* extName)
 
 Drawer::~Drawer()
 {
-    if (_screenShader) glDeleteProgram(_screenShader);
-    if (_mainShader) glDeleteProgram(_mainShader);
+    if (_screenShader) delete _screenShader;
+    if (_mainShader) delete _mainShader;
     if (_frameTexID) glDeleteTextures(1, &_frameTexID);
     if (_atlasTexID) glDeleteTextures(1, &_atlasTexID);
     if (_palTexID) glDeleteTextures(1, &_palTexID);
