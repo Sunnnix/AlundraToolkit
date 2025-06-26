@@ -44,14 +44,14 @@ struct LayerInfos
 
 struct Scrollar
 {
-    int8_t     FactorXNum;
+    int8_t     FactorXNum; // How many pixels to scroll horizontal against camera movement (negative = scroll with camera)
     int8_t     FactorXDenom;
-    int8_t     FactorYNum;
+    int8_t     FactorYNum; // How many pixels to scroll vertical against camera movement (negative = scroll with camera)
     int8_t     FactorYDenom;
-    int8_t     ScrollXSpeed;
-    int8_t     ScrollXPeriod;
-    int8_t     ScrollYSpeed;
-    int8_t     ScrollYPeriod;
+    int8_t     ScrollXSpeed; // How many pixels to scroll horizontal per tick
+    int8_t     ScrollXPeriod; // How many ticks to skip for horizontal scrolling
+    int8_t     ScrollYSpeed; // How many pixels to scroll vertical per tick
+    int8_t     ScrollYPeriod; // How many ticks to skip for vertical scrolling
 };
 
 class Lining
@@ -84,7 +84,9 @@ class Lining
     int InitCellular(int layerID);
 
     /// Draws a layer in scrollar mode
+    void updateParallaxLayer(int layerID, int camPosX, int camPosY, Scrollar* scrollar);
     int DrawScrollar(int layerID, int camPosX, int camPosY);
+    int DrawScrollar_OLD(int layerID, int camPosX, int camPosY);
 
     /// Draws a layer in cellular mode
     int DrawCellular(int layerID, int camPosX, int camPosY);

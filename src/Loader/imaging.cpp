@@ -31,7 +31,8 @@ bool Drawer::Init()
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     _window = SDL_CreateWindow("The Adventures of Alundra", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                               672, 512, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+                               //672, 512, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+                               640, 480, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 
     if (!_window)
     {
@@ -75,7 +76,8 @@ bool Drawer::Init()
     // Allocate the framebuffer texture
     glGenTextures(1, &_frameTexID);
     glBindTexture(GL_TEXTURE_2D, _frameTexID);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, 336, 256, 0, GL_RGBA, GL_FLOAT, nullptr);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, 336, 256, 0, GL_RGBA, GL_FLOAT, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, 320, 240, 0, GL_RGBA, GL_FLOAT, nullptr);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -189,7 +191,8 @@ void Drawer::DrawFrame()
 
     // Bind the framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, _frameBuffer);
-    glViewport(0, 0, 336, 256);
+    //glViewport(0, 0, 336, 256);
+    glViewport(0, 0, 320, 240);
 
     // Set background color
     glClearColor(_bgColor[0], _bgColor[1], _bgColor[2], 1.0f);
@@ -342,8 +345,10 @@ void Drawer::UpdateScreenProjection()
 {
     SDL_GL_GetDrawableSize(_window, &_winW, &_winH);
 
-    const float nativeW = 336.0f;
-    const float nativeH = 256.0f;
+    //const float nativeW = 336.0f;
+    //const float nativeH = 256.0f;    
+    const float nativeW = 320.0f;
+    const float nativeH = 240.0f;
 
     float scaleX = float(_winW) / nativeW;
     float scaleY = float(_winH) / nativeH;

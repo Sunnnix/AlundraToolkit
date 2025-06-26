@@ -144,7 +144,460 @@ int Lining::DrawLining(int camPosX, int camPosY)
     return primCount;
 }
 
+int _parallaxX_skipCounter[2];
+int _parallaxY_skipCounter[2];
+
+void Lining::updateParallaxLayer(int layerID, int camPosX, int camPosY, Scrollar* scrollar)
+{
+    _animFrameCounter[layerID]++;
+    if (_animFrameTimer[layerID] >= scrollar->ScrollXPeriod + 1) {
+        _animFrameCounter[layerID]++;
+        _animFrameTimer[layerID] = 0;
+    }
+
+    if (_animFrameCounter[layerID] >= _infos->AnimNum)
+        _animFrameCounter[layerID] = 0;
+
+    camPosX = camPosX * scrollar->FactorXNum;
+    if ((int)scrollar->FactorXDenom == 0)
+        throw std::exception("0x1c00");
+    if (((int)scrollar->FactorXDenom == -1) && (camPosX == -0x80000000))
+        throw std::exception("0x1800");
+    _offsetX[layerID] = camPosX / (int)scrollar->FactorXDenom;
+    camPosY = camPosY * scrollar->FactorYNum;
+
+    if ((int)scrollar->FactorYDenom == 0) {
+        throw std::exception("0x1c00");
+    }
+    if (((int)scrollar->FactorYDenom == -1) && (camPosY == -0x80000000)) {
+        throw std::exception("0x1800");
+    }
+    _offsetY[layerID] = camPosY / (int)scrollar->FactorYDenom;
+    _parallaxOffsetX[layerID] += (int)scrollar->ScrollXSpeed;
+    _parallaxOffsetY[layerID] += (int)scrollar->ScrollYSpeed;
+    _parallaxX_skipCounter[layerID]++;
+
+    if ((int)scrollar->ScrollXPeriod < 0) {
+        *(int*)&scrollar->ScrollXPeriod = -(int)scrollar->ScrollXPeriod;
+    }
+    if ((int)scrollar->ScrollXPeriod + -1 <= (int)_parallaxX_skipCounter[layerID]) {
+        _parallaxOffsetX[layerID] += _scrollDirX[layerID];
+        _parallaxX_skipCounter[layerID] = 0;
+    }
+    _parallaxY_skipCounter[layerID]++;
+
+    if ((int)scrollar->ScrollYPeriod < 0) {
+        *(int*)&scrollar->ScrollYPeriod = -(int)scrollar->ScrollYPeriod;
+    }
+    if ((int)scrollar->ScrollYPeriod + -1 <= (int)_parallaxY_skipCounter[layerID]) {
+        _parallaxOffsetY[layerID] += _scrollDirY[layerID];
+        _parallaxY_skipCounter[layerID] = 0;
+    }
+    //if (BufferIndex == 0) {
+    //    CurrentParallaxGPUData_Layer_Ptr = &ParallaxGPUData_L1;
+    //}
+    //else {
+    //    CurrentParallaxGPUData_Layer_Ptr = &ParallaxGPUData_L2;
+    //}
+}
+
 int Lining::DrawScrollar(int layerID, int camPosX, int camPosY)
+{
+    LayerInfos* layerInfos;
+    Scrollar* scrollar;
+    int tileByteOffset;
+    int tileScrollXAdjusted;
+    int tileScrollY;
+    int* finalOffsetXPtr;
+    int tileY;
+    uint32_t* scrollOffsetX;
+    int tileScrollX;
+    uint32_t* scrollOffsetY;
+    int tileX;
+    int x;
+    int y;
+    int prims;
+    int layerOffsets[4];
+    short tileScrollYAdjusted;
+    int tmp;
+    Rect srcRect;
+    Quad dstQuad;
+
+    layerInfos = (LayerInfos*)(_data + _header->Layers[layerID]);
+    scrollar = (Scrollar*)(_data + _header->Layers[layerID] + 4);
+
+    prims = 0;
+    layerOffsets[0] = 0;
+    layerOffsets[1] = 0;
+    layerOffsets[2] = 0;
+    layerOffsets[3] = 0;
+    updateParallaxLayer(layerID, camPosX, camPosY, scrollar);
+    scrollOffsetX = (uint32_t*) &_parallaxOffsetX[layerID];
+    finalOffsetXPtr = layerOffsets;
+    *finalOffsetXPtr = _offsetX[layerID] + *scrollOffsetX;
+    scrollOffsetY = (uint32_t*) &_parallaxOffsetY[layerID];
+    layerOffsets[2] = _offsetY[layerID] + *scrollOffsetY;
+    if (*finalOffsetXPtr < 0) {
+        *scrollOffsetX = *scrollOffsetX + 0x280;
+    }
+    if (0x27f < *finalOffsetXPtr) {
+        *scrollOffsetX = *scrollOffsetX - 0x280;
+    }
+    tmp = layerOffsets[2];
+    if (tmp < 0) {
+        *scrollOffsetY = *scrollOffsetY + 0x1e0;
+        tmp = layerOffsets[2];
+    }
+    if (0x1df < tmp) {
+        *scrollOffsetY = *scrollOffsetY - 0x1e0;
+    }
+    //tileDataBase = DAT_801dda68;
+    //animFrameCount = *(uint8_t*)((int)ParallaxAnimFrameCount ? +0x1d);
+    //if (animFrameCount == 0) {
+    //    throw std::exception("0x1c00");
+    //}
+    //currentAnimFrame = PLI.animationIndex;
+    tileScrollX = *finalOffsetXPtr;
+    tileScrollXAdjusted = tileScrollX;
+    if (tileScrollX < 0) {
+        tileScrollXAdjusted = tileScrollX + 15;
+    }
+    tileScrollY = layerOffsets[2];
+    tileY = tileScrollY;
+    if (tileScrollY < 0)
+        tileY = tileScrollY + 15;
+    tileY /= 16;//tileRowIndex = tileRowIndex >> 4;
+    tileScrollYAdjusted = (short)tileY;
+    //layerAnimDataStart = *ParallaxAnimFrameCount ? +layerIndex * DAT_801e6368 * 0x960 + 0x8100;
+    if (0x1d < tileY)
+        tileY = 0;
+
+    bool sndScroll = (_infos->ModeLayer[0] == 1 && _infos->ModeLayer[1] == 1) * layerID;
+    char* baseMap = (char*)(_data + _header->Graphics + 0x8100 + sndScroll * 0x960);
+
+    char* mapRow = (char*)(baseMap + tileY * 0x50);
+    for(y = 0; y < 256; y += 0x10) {
+        /*if (29 < tileRowIndex) {
+            tileRowIndex = 0;
+            rowStartPtr = layerAnimDataStart;
+        }*/
+        if (29 < tileY) {
+            tileY = 0;
+            mapRow = baseMap;
+        }
+        //tilePrimPtr = (short*)((int)primPtr + 10);
+        tileX = tileScrollXAdjusted >> 4;
+
+        for(x = 0; x < 336; x += 16) {
+            int curTileX = tileX;
+
+            tileByteOffset = tileX << 1;
+            if (39 < tileX) {
+                tileX = 0;
+                tileByteOffset = 0;
+            }
+
+
+            //tileDataPtr = (uint8_t*)(tileDataBase + rowStartPtr + tileByteOffset);
+            //tileID = *tileDataPtr;
+            /*if (tileID != 0) {
+                prims = prims + 1;
+                tileClutIndex = *(short*)(((unsigned int)tileDataPtr[1] + ParallaxClutBaseOffset ? ) * 2 + ParallaxClutTable ? );
+                *(uint8_t*)((int)tilePrimPtr + 3) = (tileID & 240) + (char)currentAnimFrame * (char)(256 / animFrameCount);
+                *(char*)(tilePrimPtr + 1) = (char)((tileID & 15) << 4);
+                tilePrimPtr[-1] = (short)screenTileX - ((short)tileScrollX + (short)(tileScrollXAdjusted >> 4) * -16);
+                *tilePrimPtr = (short)screenTileY - ((short)tileScrollY + tileScrollYAdjusted * -16);
+                tilePrimPtr[2] = tileClutIndex;
+                // Probable PsyQ macro: addPrim().
+                *primPtr = *primPtr & 0xff000000 | *orderingTable & 0xffffff;
+                *orderingTable = *orderingTable & 0xff000000 | (uint)primPtr & 0xffffff;
+            }*/
+
+            char* tileData = (char*)(mapRow + (curTileX << 1));
+            char tileVal = *tileData;
+
+            if (tileVal) {
+                prims++;
+                
+                int abe = (layerInfos->BlendMode != 0) + layerInfos->BlendMode;
+                int palDex = tileData[1];
+                int u0 = (tileVal & 0x0F) << 4;
+                int v0 = (tileVal & 0xF0) + _animFrameCounter[layerID] * (0x100 / _infos->AnimNum);
+                int x0 = (short)x - ((short)tileScrollX + (short)(tileScrollXAdjusted >> 4) * -16);
+                int y0 = (short)y -((short)tileScrollY + tileScrollYAdjusted * -16);
+
+                srcRect =
+                {
+                    u0, v0,
+                    16, 16
+                };
+
+                dstQuad =
+                {
+                    { x0, y0 },
+                    { x0 + 16, y0 },
+                    { x0 + 16, y0 + 16 },
+                    { x0, y0 + 16 }
+                };
+
+                _drawer->AddBatch(dstQuad, srcRect, 3, palDex, 0);
+            }
+            //tilePrimPtr = tilePrimPtr + 8;
+            //primPtr = primPtr + 4;
+            tileX += 1;
+        };
+        tileY = tileY + 1;
+        mapRow += 80;
+    };
+    return prims;
+}
+
+// ==========================================================================================
+// new try to decode Ghidra (don't work properly)        TODO
+// ==========================================================================================
+
+/*
+void Lining::updateParallaxLayer(int camPosX, int camPosY, int layerID)
+{
+    int tmp;
+    int parallaxSkipCounter;
+    int* parallaxSkipXounterPtr;
+    int* parallaxOffsetXPtr;
+    int* animFrameTimerPtr;
+    int* parallaxOffsetYPtr;
+
+    Scrollar* scrollar = (Scrollar*)(_data + _header->Layers[layerID] + 4);
+
+    animFrameTimerPtr = _animFrameTimer + layerID;
+    tmp = *animFrameTimerPtr;
+    *animFrameTimerPtr = tmp + 1;
+    if ((int)(uint32_t)(scrollar->ScrollXPeriod + 1) <= tmp) {
+        _animFrameCounter[layerID] = _animFrameCounter[layerID] + 1;
+        *animFrameTimerPtr = 0;
+    }
+    if ((int)(uint32_t)(_infos->AnimNum) <= _animFrameCounter[layerID]) {
+        _animFrameCounter[layerID] = 0;
+    }
+
+    camPosX = camPosX * scrollar->FactorXNum;
+    tmp = (int)scrollar->FactorXDenom;
+    if (tmp == 0) {
+        throw std::exception("0x1c00");
+    }
+    if ((tmp == -1) && (camPosX == -0x80000000)) {
+        throw std::exception("0x1800");
+    }
+    _offsetX[layerID] = camPosX / tmp;
+    camPosY = camPosY * scrollar->FactorYNum;
+    tmp = (int)scrollar->FactorYDenom;
+    if (tmp == 0) {
+        throw std::exception("0x1c00");
+    }
+    if ((tmp == -1) && (camPosY == -0x80000000)) {
+        throw std::exception("0x1800");
+    }
+    _offsetY[layerID] = camPosY / tmp;
+    parallaxOffsetXPtr = _parallaxOffsetX + layerID;
+    *parallaxOffsetXPtr = *parallaxOffsetXPtr + (int)scrollar->ScrollXSpeed;
+    parallaxOffsetYPtr = _parallaxOffsetY + layerID;
+    *parallaxOffsetYPtr = *parallaxOffsetYPtr + (int)scrollar->ScrollYSpeed;
+    parallaxSkipXounterPtr = _parallaxX_skipCounter + layerID;
+    parallaxSkipCounter = *parallaxSkipXounterPtr;
+    *parallaxSkipXounterPtr = parallaxSkipCounter + 1;
+    tmp = (int)scrollar->ScrollXPeriod;
+    if (tmp < 0) {
+        tmp = -tmp;
+    }
+    if (tmp + -1 <= parallaxSkipCounter) {
+        *parallaxOffsetXPtr = *parallaxOffsetXPtr + _scrollDirX[layerID];
+        *parallaxSkipXounterPtr = 0;
+    }
+    parallaxSkipXounterPtr = _parallaxY_skipCounter + layerID;
+    parallaxSkipCounter = *parallaxSkipXounterPtr;
+    *parallaxSkipXounterPtr = parallaxSkipCounter + 1;
+    tmp = (int)scrollar->ScrollYPeriod;
+    if (tmp < 0) {
+        tmp = -tmp;
+    }
+    if (tmp + -1 <= parallaxSkipCounter) {
+        *parallaxOffsetYPtr = *parallaxOffsetYPtr + _scrollDirY[layerID];
+        *parallaxSkipXounterPtr = 0;
+    }
+    //if (BufferIndex == 0) {
+    //    CurrentParallaxGPUData_Layer_Ptr = &ParallaxGPUData_L1;
+    //}
+    //else {
+    //    CurrentParallaxGPUData_Layer_Ptr = &ParallaxGPUData_L2;
+    //}
+}
+
+int Lining::DrawScrollar(int layerID, int camPosX, int camPosY)
+{
+    //int tileDataBase;
+    int tileByteOffset;
+    //byte* tileDataPtr;
+    int animFrameCounter;
+    int adjustedOffsetX;
+    int offsetY;
+    int* offsetXPtr;
+    int adjustedOffsetY;
+    int* pOffsetX;
+    int offsetX;
+    //short* tilePrimPtr;
+    int* pOffsetY;
+    int tileX;
+    //uint* primPtr;
+    int x;
+    //char* mapRow;
+    int y;
+    int prims;
+    //char* baseMap;
+    int layerOffsets[4];
+    uint8_t animNum;
+    short tileClutIndex;
+    //uint8_t tileID;
+    short tileScrollYAdjusted;
+    int tmp;
+    Rect srcRect;
+    Quad dstQuad;
+
+    prims = 0;
+    layerOffsets[0] = 0;
+    layerOffsets[1] = 0;
+    layerOffsets[2] = 0;
+    layerOffsets[3] = 0;
+    updateParallaxLayer(camPosX, camPosY, layerID);
+    pOffsetX = _parallaxOffsetX + layerID;
+    offsetXPtr = layerOffsets + layerID;
+    *offsetXPtr = _offsetX[layerID] + *pOffsetX;
+    pOffsetY = _parallaxOffsetY + layerID;
+    layerOffsets[layerID + 2] = _offsetY[layerID] + *pOffsetY;
+    if (*offsetXPtr < 0) {
+        *pOffsetX = *pOffsetX + 640;
+    }
+    if (639 < *offsetXPtr) {
+        *pOffsetX = *pOffsetX + -640;
+    }
+    tmp = layerOffsets[layerID + 2];
+    if (tmp < 0) {
+        *pOffsetY = *pOffsetY + 480;
+        tmp = layerOffsets[layerID + 2];
+    }
+    if (479 < tmp) {
+        *pOffsetY = *pOffsetY + -480;
+    }
+    //tileDataBase = DAT_801dda68;
+    animNum = _infos->AnimNum;
+    if (animNum == 0) {
+        throw std::exception("0x1c00");
+    }
+    animFrameCounter = _animFrameCounter[layerID];
+    offsetX = *offsetXPtr;
+    adjustedOffsetX = offsetX;
+    if (offsetX < 0) {
+        adjustedOffsetX = offsetX + 15;
+    }
+    offsetY = layerOffsets[layerID + 2];
+    adjustedOffsetY = offsetY;
+    if (offsetY < 0) {
+        adjustedOffsetY = offsetY + 15;
+    }
+    adjustedOffsetY = adjustedOffsetY >> 4;
+    tileScrollYAdjusted = (short)adjustedOffsetY;
+    //baseMap = *_infos->AnimNum + layerID * DAT_801e6368 * 0x960 + 0x8100;
+    if (0x1d < adjustedOffsetY) {
+        adjustedOffsetY = 0;
+    }
+    //primPtr = (uint*)(CurrentParallaxGPUData_Layer_Ptr + layerID * 0x1540);
+    //mapRow = baseMap + adjustedOffsetY * 80;
+
+
+    // Custom memory access
+    LayerInfos* layerInfos = (LayerInfos*)(_data + _header->Layers[layerID]);
+    bool sndScroll = (_infos->ModeLayer[0] == 1 && _infos->ModeLayer[1] == 1) * layerID;
+    char* baseMap = (char*)(_data + _header->Graphics + 0x8100 + sndScroll * 0x960);
+    char* mapRow = (char*)(baseMap + offsetY * 80);
+
+    y = 0;
+    do {
+        if (29 < adjustedOffsetY) {
+            adjustedOffsetY = 0;
+            mapRow = baseMap;
+        }
+        x = 0;
+        //tilePrimPtr = (short*)((int)primPtr + 10);
+        tileX = adjustedOffsetX >> 4;
+        do {
+            tileByteOffset = tileX << 1;
+            if (39 < tileX) {
+                tileX = 0;
+                tileByteOffset = 0;
+            }
+            //tileDataPtr = (byte*)(tileDataBase + mapRow + tileByteOffset);
+            //tileID = *tileDataPtr;
+            //if (tileID != 0) {
+            //    prims = prims + 1;
+            //    tileClutIndex =
+            //        *(short*)(((uint)tileDataPtr[1] + ParallaxClutBaseOffset ? ) * 2 + ParallaxClutTable ? );
+            //    *(byte*)((int)tilePrimPtr + 3) =
+            //        (tileID & 240) + (char)animFrameCounter * (char)(256 / animNum);
+            //    *(char*)(tilePrimPtr + 1) = (char)((tileID & 15) << 4);
+            //    tilePrimPtr[-1] = (short)x - ((short)offsetX + (short)(adjustedOffsetX >> 4) * -16);
+            //    *tilePrimPtr = (short)y - ((short)offsetY + tileScrollYAdjusted * -16);
+            //    tilePrimPtr[2] = tileClutIndex;
+            //    /* Probable PsyQ macro: addPrim(). */
+            //    *primPtr = *primPtr & 0xff000000 | *orderingTable & 0xffffff;
+            //    *orderingTable = *orderingTable & 0xff000000 | (uint)primPtr & 0xffffff;
+            //}
+
+            /*char* tileData = (char*)(mapRow + tileByteOffset);
+            char tileVal = tileData[0];
+
+            if (tileVal) {
+                prims++;
+
+                int abe = (layerInfos->BlendMode != 0) + layerInfos->BlendMode;
+                int palDex = tileData[1];
+                int u0 = (tileVal & 0x0F) << 4;
+                int v0 = (tileVal & 0xF0) + _animFrameCounter[layerID] * (0x100 / _infos->AnimNum);
+                int x0 = (short)x - ((short)offsetX + (short)(adjustedOffsetX >> 4) * -16);
+                int y0 = (short)y - ((short)offsetY + tileScrollYAdjusted * -16);
+
+                srcRect =
+                {
+                    u0, v0,
+                    16, 16
+                };
+
+                dstQuad =
+                {
+                    { x0, y0 },
+                    { x0 + 16, y0 },
+                    { x0 + 16, y0 + 16 },
+                    { x0, y0 + 16 }
+                };
+
+                _drawer->AddBatch(dstQuad, srcRect, 3, palDex, 0);
+            }
+
+
+            //tilePrimPtr = tilePrimPtr + 8;
+            //primPtr = primPtr + 4;
+            x = x + 16;
+            tileX = tileX + 1;
+        } while (x < 336);
+        adjustedOffsetY = adjustedOffsetY + 1;
+        y = y + 16;
+        mapRow = mapRow + 80;
+    } while (y < 256);
+    return prims;
+}*/
+
+// ==========================================================================================
+// End
+// ==========================================================================================
+
+int Lining::DrawScrollar_OLD(int layerID, int camPosX, int camPosY)
 {
     int primCount = 0;
 
