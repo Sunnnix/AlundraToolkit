@@ -280,6 +280,8 @@ class Level
 
     public:
 
+    static const int LEVEL_MAX_INDEX = 482;
+
     /// Constructor
     Level(char* levelData, uint32_t levelSize);
 

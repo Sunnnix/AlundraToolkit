@@ -174,6 +174,8 @@ int _windowedW = 0, _windowedH = 0;
     /// Expose the SDL_Window pointer
     SDL_Window* GetWindow() const { return _window; }
 
+    SDL_GLContext* GetContext() { return &_glContext; }
+
     /// Destructor
     ~Drawer();
 };

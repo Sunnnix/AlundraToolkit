@@ -34,6 +34,39 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(GLM)
 message(STATUS "GLM source: ${glm_SOURCE_DIR}")
 
+# imgui
+FetchContent_Declare(
+    imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG v1.91.9b-docking
+)
+FetchContent_MakeAvailable(imgui)
+message(STATUS "imgui source: ${imgui_SOURCE_DIR}")
+
+set(imgui_SRC
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_demo.cpp
+)
+
+set(imgui_BACKENDS
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl2.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+)
+
+add_library(imgui STATIC
+    ${imgui_SRC}
+    ${imgui_BACKENDS}
+)
+
+target_include_directories(imgui PUBLIC
+    ${imgui_SOURCE_DIR}
+    ${imgui_SOURCE_DIR}/backends
+    ${sdl_SOURCE_DIR}/include
+)
+
 #set(GLAD_PATH "extern/GLAD")
 set(GLEW_ROOT "${CMAKE_SOURCE_DIR}/extern/glew-2.1.0")
 
@@ -65,13 +98,27 @@ else()
 endif()
 
 #target_link_libraries(${PROJ_NAME} PRIVATE SDL2::SDL2 SDL2::SDL2main SDL2_mixer::SDL2_mixer OpenGL::GL)
-target_link_libraries(${PROJ_NAME} PRIVATE SDL2::SDL2 SDL2::SDL2main glew32 OpenGL::GL)
+target_link_libraries(${PROJ_NAME} PRIVATE SDL2::SDL2 SDL2::SDL2main glew32 OpenGL::GL imgui)
 
 # DLL export
-add_custom_command(TARGET ${PROJ_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy
-    "${sdl_BINARY_DIR}/SDL2d.dll"
-    $<TARGET_FILE_DIR:${PROJ_NAME}>)
+if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+    # DEBUG: SDL2d.dll
+    add_custom_command(TARGET ${PROJ_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${sdl_BINARY_DIR}/SDL2d.dll"
+        $<TARGET_FILE_DIR:${PROJ_NAME}>
+        COMMENT "Copying SDL2d.dll for Debug"
+    )
+endif()
+if(${CMAKE_BUILD_TYPE} STREQUAL "Release")
+    # RELEASE: SDL2.dll
+    add_custom_command(TARGET ${PROJ_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${sdl_BINARY_DIR}/SDL2.dll"
+        $<TARGET_FILE_DIR:${PROJ_NAME}>
+        COMMENT "Copying SDL2.dll for Release"
+    )
+endif()
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     # 64-bit

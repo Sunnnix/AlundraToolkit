@@ -7,6 +7,16 @@
 #include <cstdio>
 #include <ctime>
 
+enum RenderState {
+    PRE_RENDER,
+    POST_RENDER
+};
+
+class Engine;
+
+typedef void (*EventPolling)(SDL_Event*);
+typedef void (*CustomRenderFunc)(RenderState, Engine*);
+
 class Camera
 {
     private:
@@ -56,13 +66,13 @@ class Engine
     SDL_GameController* _controller;
 
     /// Processes user input
-    void ProcessInput();
+    void ProcessInput(EventPolling ep);
 
     /// Updates the game state
     void Update(float deltaTime);
 
     /// Renders game objects on the screen
-    void Render();
+    void Render(CustomRenderFunc crf);
 
     /// Checks for collisions between game objects
     void CheckCollisions();
@@ -76,7 +86,16 @@ class Engine
     int Init();
 
     /// Starts the main game loop
-    void Run();
+    void Run(EventPolling ep = 0, CustomRenderFunc func = 0);
+
+    SDL_Window* GetWindow();
+
+    SDL_GLContext* GetContext();
+
+    int GetLevelIndex() { return _levelDex; }
+    int SetLevelIndex(int level);
+
+    Camera* GetCamera();
 
     /// Destructor
     ~Engine();

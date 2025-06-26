@@ -73,18 +73,31 @@ int Engine::Init()
     return 0;
 }
 
-void Engine::ProcessInput()
+void Engine::ProcessInput(EventPolling ep)
 {
     SDL_Event event;
 
     while (SDL_PollEvent(&event))
     {
+        if (ep)
+            ep(&event);
         switch (event.type)
         {
             case SDL_QUIT:
             {
                 printf("Shutting down the engine...\n");
                 _running = false;
+                break;
+            }
+            
+            // Exit engine if main window is closing
+            case SDL_WINDOWEVENT: 
+            {
+                if (event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(_drawer->GetWindow())) {
+                    SDL_Event quit_event;
+                    quit_event.type = SDL_QUIT;
+                    SDL_PushEvent(&quit_event);
+                }
                 break;
             }
 
@@ -137,19 +150,13 @@ void Engine::ProcessInput()
 
                     case SDLK_m:
                     {
-                        _levelDex = (_levelDex - 1) < 0 ? 482 : _levelDex - 1;
-                        delete _level;
-                        _level = _dataHandler->LoadLevel(_levelDex);
-                        if (_level) _level->Init(_drawer);
+                        SetLevelIndex(_levelDex - 1);
                         break;
                     }
 
                     case SDLK_p:
                     {
-                        _levelDex = (_levelDex + 1) > 482 ? 0 : _levelDex + 1;
-                        delete _level;
-                        _level = _dataHandler->LoadLevel(_levelDex);
-                        if (_level) _level->Init(_drawer);
+                        SetLevelIndex(_levelDex + 1);
                         break;
                     }
 
@@ -202,13 +209,17 @@ void Engine::Update(float deltaTime)
     _cam->Move();
 }
 
-void Engine::Render()
+void Engine::Render(CustomRenderFunc crf)
 {
+    if (crf)
+        crf(PRE_RENDER, this);
     if (_level) _level->DrawScene(_drawer, _cam->GetViewRect());
+    if (crf)
+        crf(POST_RENDER, this);
     SDL_GL_SwapWindow(_drawer->GetWindow());
 }
 
-void Engine::Run()
+void Engine::Run(EventPolling ep, CustomRenderFunc crf)
 {
     if (!_initialized)
     {
@@ -234,10 +245,10 @@ void Engine::Run()
         lastFrameTime = currentTime;
 
         // Core
-        ProcessInput();
+        ProcessInput(ep);
         //CheckCollisions();
         Update(deltaTime);
-        Render();
+        Render(crf);
 
         // Frame limiting using SDL_Delay() to wait until the frame duration is met
         clock_t frameEndTime = clock();
@@ -250,6 +261,39 @@ void Engine::Run()
             SDL_Delay(delayMs);
         }
     }
+}
+
+SDL_Window* Engine::GetWindow()
+{
+    if (!_drawer)
+        return nullptr;
+    return _drawer->GetWindow();
+}
+
+SDL_GLContext* Engine::GetContext()
+{
+    if (!_drawer)
+        return nullptr;
+    return _drawer->GetContext();
+}
+
+int Engine::SetLevelIndex(int level)
+{
+    if (level < 0)
+        _levelDex = Level::LEVEL_MAX_INDEX;
+    else if (level > Level::LEVEL_MAX_INDEX)
+        _levelDex = 0;
+    else
+        _levelDex = level;
+    delete _level;
+    _level = _dataHandler->LoadLevel(_levelDex);
+    if (_level) _level->Init(_drawer);
+    return _levelDex;
+}
+
+Camera* Engine::GetCamera()
+{
+    return _cam;
 }
 
 Engine::~Engine()
