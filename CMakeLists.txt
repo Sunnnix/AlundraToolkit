@@ -81,11 +81,21 @@ if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET ${PROJ_NAME} PROPERTY CXX_STANDARD 20)
 endif()
 
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(FLUIDSYNTH_DIR "${CMAKE_SOURCE_DIR}/extern/WINx64/fluidsynth-2.4.7-win10-x64")
+else()
+    set(FLUIDSYNTH_DIR "${CMAKE_SOURCE_DIR}/extern/WINx86/fluidsynth-2.4.7-winXP-x86")
+endif()
+
+message(STATUS "Using ${FLUIDSYNTH_DIR} for fluidsynth")
+
 #target_include_directories(${PROJ_NAME} PRIVATE ${GLAD_PATH}/include)
 #target_sources(${PROJ_NAME} PRIVATE ${GLAD_PATH}/src/glad.c)
 target_include_directories(${PROJ_NAME} PRIVATE ${GLEW_ROOT}/include)
 
 target_include_directories(${PROJ_NAME} PRIVATE ${glm_SOURCE_DIR})
+
+target_include_directories(${PROJ_NAME} PRIVATE ${FLUIDSYNTH_DIR}/include)
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     # 64-bit
@@ -98,7 +108,7 @@ else()
 endif()
 
 #target_link_libraries(${PROJ_NAME} PRIVATE SDL2::SDL2 SDL2::SDL2main SDL2_mixer::SDL2_mixer OpenGL::GL)
-target_link_libraries(${PROJ_NAME} PRIVATE SDL2::SDL2 SDL2::SDL2main glew32 OpenGL::GL imgui)
+target_link_libraries(${PROJ_NAME} PRIVATE SDL2::SDL2 SDL2::SDL2main glew32 OpenGL::GL imgui "${FLUIDSYNTH_DIR}/lib/libfluidsynth-3.lib")
 
 # DLL export
 if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
@@ -133,6 +143,13 @@ else()
     "${GLEW_ROOT}/bin/Release/Win32/glew32.dll"
     $<TARGET_FILE_DIR:${PROJ_NAME}>)
 endif()
+
+file(GLOB_RECURSE FLUID_DLLS "${FLUIDSYNTH_DIR}/bin/*.dll")
+add_custom_command(TARGET ${PROJ_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${FLUID_DLLS}
+        $<TARGET_FILE_DIR:${PROJ_NAME}>
+)
 
 if(MSVC)
   target_compile_options(${PROJ_NAME} PUBLIC "/ZI")

@@ -7,6 +7,8 @@
 #include <algorithm>
 #include "util.h"
 #include "Loader/engine.h"
+#include "AlundraAudioPlayer.h"
+#include <thread>
 
 ImGuiIO* io;
 
@@ -28,7 +30,12 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
+	std::thread audioPlayer(Alundra::AudioPlayer::Start);
+
 	engine.Run(imgUIEventPolling, RenderImGui);
+
+	Alundra::AudioPlayer::Stop();
+	audioPlayer.join();
 
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplSDL2_Shutdown();
