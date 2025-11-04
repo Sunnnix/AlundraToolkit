@@ -92,6 +92,15 @@ struct BitmapInfo
     uint32_t     NeededColors;
 };
 
+struct Batch
+{
+    Quad        DstQuad;
+    Rect        SrcRect;
+    int8_t      Group;
+    uint8_t     PalDex;
+    uint8_t     BlendMode;
+};
+
 class Drawer
 {
     private:
@@ -99,23 +108,28 @@ class Drawer
     SDL_Window* _window;
     SDL_GLContext _glContext;
 
+    bool _ready2Draw = false;
+
     float _bgColor[3] = { 0, 0, 0 };
+    bool _drawOvr =  false;
+    float _ovrColor[16] =
+    {
+        0, 0, 0, 2,   // TL
+        0, 0, 0, 2,   // TR
+        0, 0, 0, 2,   // BL
+        0, 0, 0, 2    // BR
+    };
 
     std::vector<Vertex> _drawQueue;
     std::vector<uint32_t> _indexQueue;
 
-    Shader* _mainShader;
-    Shader* _screenShader;
-    GLuint _frameBuffer, _frameTexID, _atlasTexID, _palTexID,
+    GLuint _mainShader, _overlayShader, _screenShader, _frameBuffer, _frameTexID, _atlasTexID, _palTexID,
            _VAO, _VBO, _EBO, _VBOSize, _screenVAO, _screenVBO;
+    GLint  _ovrLoc, _screenLoc, _atlasLoc, _paletteLoc;
 
     int _winW, _winH;
 
-bool _isBorderlessFullscreen = false;
-int _windowedX = 0, _windowedY = 0;
-int _windowedW = 0, _windowedH = 0;
-
-    const glm::mat4 _projection = glm::ortho(0.0f, 336.0f, 256.0f, 0.0f, -1.0f, 1.0f);
+    const glm::mat4 _projection = glm::ortho(0.0f, 320.0f, 240.0f, 0.0f, -1.0f, 1.0f);
 
     const float _invAtlasWidth = 1.0f / 256.0f;
     const float _invAtlasHeight = 1.0f / 5632.0f;
@@ -126,6 +140,15 @@ int _windowedW = 0, _windowedH = 0;
                                         0x0100, 0x0100, 0x0100 };
 
     bool _fullscreen, _aspectRatio;
+
+    /// Compile a shader
+    void CompileShader(GLuint& shader, const char* vertShader, const char* fragShader);
+
+    /// Checks for compilation errors while creating shaderProg
+    bool CheckShaderCompile(GLuint shader, const char* shaderName);
+
+    /// Checks for linking issues with shaderProg
+    bool CheckProgramLink(GLuint program);
 
     /// Catches usual OpenGL errors
     bool CheckGLError(const char* errorMessage);
@@ -138,6 +161,9 @@ int _windowedW = 0, _windowedH = 0;
     /// Constructor
     Drawer();
 
+    bool IsReady() { return _ready2Draw; };
+    void SetReady(bool val) { _ready2Draw = val; };
+
     /// Initialize SDL, create window, OpenGL context, compile shaders, allocate textures
     bool Init();
 
@@ -147,8 +173,17 @@ int _windowedW = 0, _windowedH = 0;
       _bgColor[1] = color.Green / 255.0f;
       _bgColor[2] = color.Blue / 255.0f; }
 
+    /// Enable the overlay
+    void EnableOvr(bool val) { _drawOvr = val; };
+
+    /// Update the overlay
+    void UpdateOverlay(float* rec) { memcpy(_ovrColor, rec, 16 * sizeof(float)); };
+
     /// Draw the actual frame and render to the screen
     void DrawFrame();
+
+    /// Clean the queues
+    void ClearQueues();
 
     /// Resize the window
     void ResizeWindow(int width, int height);
@@ -169,12 +204,10 @@ int _windowedW = 0, _windowedH = 0;
     void UpdateScreenProjection();
 
     /// Add a batch to the current draw queue
-    void AddBatch(const Quad& dstQuad, const Rect& srcRect, int group, int palDex, int blendMode);
+    void AddBatch(const Batch& b);
 
     /// Expose the SDL_Window pointer
     SDL_Window* GetWindow() const { return _window; }
-
-    SDL_GLContext* GetContext() { return &_glContext; }
 
     /// Destructor
     ~Drawer();
@@ -238,3 +271,4 @@ class Texture
 };
 
 #endif // IMAGINGE_H_INCLUDED
+
