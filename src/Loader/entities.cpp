@@ -71,8 +71,9 @@ void Entities::DrawSprite(Drawer* const& drawer, Point pos, uint8_t obj, uint16_
             { sub->XBRStr + pos.X, sub->YBRStr + pos.Y },
             { sub->XBLStr + pos.X, sub->YBLStr + pos.Y },
         };
-
-        drawer->AddBatch(quad, rect, 1, sub->Palette, bmode);
+        
+        Batch b = { quad, rect, 1, sub->Palette, bmode };
+        drawer->AddBatch(b);
     }
 }
 
@@ -110,3 +111,4 @@ Object::~Object()
 {
 
 }
+
