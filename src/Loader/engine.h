@@ -22,8 +22,8 @@ class Camera
     private:
 
     Point _position;                // Position (pixels)
-    static const int _width = 336;
-    static const int _height = 256;
+    static const int _width = 320;
+    static const int _height = 240;
     int _dx;
     int _dy;
 
@@ -102,3 +102,4 @@ class Engine
 };
 
 #endif // ENGINE_H_INCLUDED
+
