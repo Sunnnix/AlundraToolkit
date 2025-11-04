@@ -20,10 +20,10 @@ struct LiningHeader
 {
     uint32_t    Graphics;
     uint32_t    Layers[2];
-    uint32_t    Unknown1;
-    uint32_t    Unknown2;
-    uint32_t    Unknown3;
-    uint32_t    Unknown4;
+    uint32_t    ScriptTable;
+    uint32_t    Overlay;
+    uint32_t    OverlayExt;
+    uint32_t    WaveLUT;
 };
 
 struct LiningInfos
@@ -54,6 +54,76 @@ struct Scrollar
     int8_t     ScrollYPeriod; // How many ticks to skip for vertical scrolling
 };
 
+enum class CellType : uint8_t
+{
+    Normal       = 0,
+    ScriptTrack  = 1,
+    FallRespawn  = 2,
+    WaveX        = 4
+};
+
+struct Cell
+{
+    uint8_t    PalDex;
+    uint8_t    U0;
+    uint8_t    V0;
+    uint8_t    U1;
+    uint8_t    V1;
+    uint8_t    Type;
+    int16_t    X0;
+    int16_t    Y0;
+    int8_t     CamXNum;
+    int8_t     CamXDen;
+    int8_t     CamYNum;
+    int8_t     CamYDen;
+    int8_t     DX;
+    int8_t     PeriodX;
+    int8_t     DY;
+    int8_t     PeriodY;
+    uint8_t    Unused0;
+    uint8_t    Unused1;
+};
+
+struct Cellular
+{
+    uint8_t    CountBase;
+    uint8_t    AWaveY;
+    uint8_t    AWavePhase;
+    uint8_t    AWaveAmp;
+    uint8_t    BWaveY;
+    uint8_t    BWavePhase;
+    uint8_t    BWaveWeight;
+    uint8_t    Divisions;
+};
+
+struct Overlay
+{
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t hold;  // hold == 0 => loop
+};
+
+struct OverlayExt
+{
+    uint8_t r00;
+    uint8_t g00;
+    uint8_t b00;   // TL
+    uint8_t r10;
+    uint8_t g10;
+    uint8_t b10;   // TR
+    uint8_t r01;
+    uint8_t g01;
+    uint8_t b01;   // BL
+    uint8_t r11;
+    uint8_t g11;
+    uint8_t b11;   // BR
+    uint8_t hold;
+    uint8_t pad0;
+    uint8_t pad1;
+    uint8_t pad2;
+};
+
 class Lining
 {
     private:
@@ -66,30 +136,75 @@ class Lining
     Drawer*         _drawer;
     Texture*        _tileSet;
 
-    int             _animFrameTimer[2];
-    int             _animFrameCounter[2];
-    int             _parallaxOffsetX[2];
-    int             _parallaxOffsetY[2];
-    int             _offsetX[2];
-    int             _offsetY[2];
-    int             _timerX[2];
-    int             _timerY[2];
-    int             _scrollDirX[2];
-    int             _scrollDirY[2];
+    std::vector<Batch> _backQueue;
+    std::vector<Batch> _frontQueue;
+    Batch              _overlay;
+
+    bool            _hasGraphx;
+
+    // Scrollar
+    int     _animFrameTimer[2];
+    int     _animFrameCounter[2];
+    int     _parallaxOffsetX[2];
+    int     _parallaxOffsetY[2];
+    int     _offsetX[2];
+    int     _offsetY[2];
+    int     _timerX[2];
+    int     _timerY[2];
+    int     _scrollDirX[2];
+    int     _scrollDirY[2];
+
+    //Cellular
+    static constexpr int CELL_MAX = 200;
+
+    int         _cellPosX[2][CELL_MAX] = {};
+    int         _cellPosY[2][CELL_MAX] = {};
+    int         _cellTickX[2][CELL_MAX] = {};
+    int         _cellTickY[2][CELL_MAX] = {};
+    uint8_t     _waveTick[2] = {0, 0};
+
+    // Overlay
+    static constexpr float INV255 = 1.0f / 255.0f;
+    uint32_t _ovrOff  = 0;
+    uint16_t _ovrTick = 0;
+    uint8_t  _ovrHold = 0;
+
+    // Helpers
+    inline const LayerInfos* GetLayerInfos(int layerID) { return (const LayerInfos*)(_data + _header->Layers[layerID]); };
+    inline const Scrollar* GetScrollar(int layerID) { return (const Scrollar*)(_data + _header->Layers[layerID] + sizeof(LayerInfos)); };
+    inline const Cellular* GetCellular(int layerID) { return (const Cellular*)(_data + _header->Layers[layerID] + sizeof(LayerInfos)); };
+    inline const Cell* GetCells(int layerID) { return (const Cell*)(_data + _header->Layers[layerID] + sizeof(LayerInfos) + sizeof(Cellular)); };
+    inline uint8_t _GetOvrBlend() { return (_infos->BGColor.Alpha < 0x65) ? 0 : 3; }
 
     /// Initializes a scrollar
     void InitScrollar(int layerID);
 
     /// Initializes a cellular
-    int InitCellular(int layerID);
+    void InitCellular(int layerID);
 
-    /// Draws a layer in scrollar mode
-    void updateParallaxLayer(int layerID, int camPosX, int camPosY, Scrollar* scrollar);
-    int DrawScrollar(int layerID, int camPosX, int camPosY);
-    int DrawScrollar_OLD(int layerID, int camPosX, int camPosY);
+    /// Initializes the overlay
+    void InitOverlay();
 
-    /// Draws a layer in cellular mode
-    int DrawCellular(int layerID, int camPosX, int camPosY);
+    /// Sets a layer in scrollar mode
+    int SetScrollar(int layerID, int camPosX, int camPosY);
+
+    /// Per-cell drift + Discrete steps
+    int CellNormal(int layerID, int i, int phase, int camPosX, int camPosY);
+
+    /// Follows a scripted track table
+    int CellScriptTrack(int layerID, int i, int phase);
+
+    /// Particles fall and respawn from the top
+    int CellFallRespawn(int layerID, int i, int phase, int camPosX, int camPosY);
+
+    /// Wavy effect on the X axis
+    int CellWaveX(int layerID, int i, int phase);
+
+    /// Sets a layer in cellular mode
+    int SetCellular(int layerID, int camPosX, int camPosY);
+
+    /// Sets an ambient overlay
+    int SetOverlay(uint8_t flag);
 
     public:
 
@@ -99,8 +214,14 @@ class Lining
     /// Initializes the lining
     int Init(Drawer* drawer);
 
-    /// Draws the lining onto the screen
-    int DrawLining(int camPosX, int camPosY);
+    /// Draws the overlay
+    void DrawOverlay() { _drawer->AddBatch(_overlay); };
+
+    /// Draws the ground
+    void DrawGround(int ground);
+
+    /// Sets the lining onto the screen
+    int SetLining(int camPosX, int camPosY);
 
     /// Destructor
     ~Lining();
@@ -299,3 +420,4 @@ class Level
 };
 
 #endif // LEVEL_H_INCLUDED
+
