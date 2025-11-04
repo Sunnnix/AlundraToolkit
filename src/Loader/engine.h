@@ -69,7 +69,7 @@ class Engine
     void ProcessInput(EventPolling ep);
 
     /// Updates the game state
-    void Update(float deltaTime);
+    void Update();
 
     /// Renders game objects on the screen
     void Render(CustomRenderFunc crf);
@@ -102,4 +102,5 @@ class Engine
 };
 
 #endif // ENGINE_H_INCLUDED
+
 
