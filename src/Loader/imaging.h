@@ -123,7 +123,8 @@ class Drawer
     std::vector<Vertex> _drawQueue;
     std::vector<uint32_t> _indexQueue;
 
-    GLuint _mainShader, _overlayShader, _screenShader, _frameBuffer, _frameTexID, _atlasTexID, _palTexID,
+    Shader* _mainShader, *_overlayShader, *_screenShader;
+    GLuint _frameBuffer, _frameTexID, _atlasTexID, _palTexID,
            _VAO, _VBO, _EBO, _VBOSize, _screenVAO, _screenVBO;
     GLint  _ovrLoc, _screenLoc, _atlasLoc, _paletteLoc;
 
@@ -141,15 +142,6 @@ class Drawer
 
     bool _fullscreen, _aspectRatio;
 
-    /// Compile a shader
-    void CompileShader(GLuint& shader, const char* vertShader, const char* fragShader);
-
-    /// Checks for compilation errors while creating shaderProg
-    bool CheckShaderCompile(GLuint shader, const char* shaderName);
-
-    /// Checks for linking issues with shaderProg
-    bool CheckProgramLink(GLuint program);
-
     /// Catches usual OpenGL errors
     bool CheckGLError(const char* errorMessage);
 
@@ -160,6 +152,8 @@ class Drawer
 
     /// Constructor
     Drawer();
+
+    SDL_GLContext* GetContext() { return &_glContext; }
 
     bool IsReady() { return _ready2Draw; };
     void SetReady(bool val) { _ready2Draw = val; };

@@ -73,7 +73,7 @@ set(GLEW_ROOT "${CMAKE_SOURCE_DIR}/extern/glew-2.1.0")
 find_package(OpenGL REQUIRED)
 
 file(GLOB_RECURSE SOURCES "src/*.c" "src/*.cpp")
-file(COPY ${CMAKE_SOURCE_DIR}/test DESTINATION ${CMAKE_BINARY_DIR})
+#file(COPY ${CMAKE_SOURCE_DIR}/test DESTINATION ${CMAKE_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/Shaders DESTINATION ${CMAKE_BINARY_DIR})
 add_executable(${PROJ_NAME} ${SOURCES})
 

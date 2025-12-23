@@ -1,125 +1,7 @@
 #include "imaging.h"
 #include <cstring>
 #include <cstdio>
-
-static const char* mainVertShader = R"(
-#version 330 core
-
-layout (location = 0) in vec2 aPos;
-layout (location = 1) in vec2 aTexCoord;
-layout (location = 2) in int aGroup;
-layout (location = 3) in int aPalDex;
-layout (location = 4) in int aBlendMode;
-
-out vec2 vTexCoord;
-flat out int vGroup;
-flat out int vPalDex;
-flat out int vBlendMode;
-
-uniform mat4 uProjection;
-
-void main()
-{
-    gl_Position = uProjection * vec4(aPos, 0.0, 1.0);
-    vTexCoord = aTexCoord;
-    vGroup = aGroup;
-    vPalDex = aPalDex;
-    vBlendMode = aBlendMode;
-}   )";
-
-static const char* mainFragShader = R"(
-#version 330 core
-
-in vec2 vTexCoord;
-flat in int vGroup;
-flat in int vPalDex;
-flat in int vBlendMode;
-
-layout (location = 0) out vec4 FragColor;
-layout (location = 1) out vec4 BlendFact;
-
-uniform usampler2D uAtlas;
-uniform sampler2D uPalette;
-uniform vec4 uOverlay[4];
-
-const float invPalW = 1.0 / 96.0;
-const float invPalH = 1.0 / 32.0;
-
-const vec2 blendModes[5] = vec2[]
-(
-    vec2(1.0, 0.0),  // Disabled
-    vec2(0.5, 0.5),  // Mean
-    vec2(1.0, 1.0),  // Additive
-    vec2(-1.0, 1.0), // Subtractive
-    vec2(0.25, 1.0)  // Overlay
-);
-
-void main()
-{
-    // Overlay mode?
-    if (vGroup < 0)
-    {
-        vec2 uv  = vTexCoord;
-        vec4 top = mix(uOverlay[0], uOverlay[1], uv.x); // TL -> TR
-        vec4 bot = mix(uOverlay[2], uOverlay[3], uv.x); // BL -> BR
-        vec4 color = mix(top, bot, uv.y);
-        vec2 blend = blendModes[vBlendMode];
-
-        FragColor = blend.x * vec4(color.rgb, 1.0);
-        BlendFact = vec4(blend.y);
-
-        return;
-    }
-
-    // Get the palette index
-    float logicalX = vTexCoord.x * 256;
-    int nibbleMask = int((logicalX - 2 * floor(logicalX * 0.5)) < 1.0);
-    uvec4 atlasSample = texture(uAtlas, vTexCoord);
-    uint byteVal = atlasSample.r;
-    uint index = (byteVal >> (nibbleMask * 4)) & 0xFu;
-
-    // Get the color
-    float palU = (float(vGroup) * 16 + float(index) + 0.5) * invPalW;
-    float palV = (float(vPalDex) + 0.5) * invPalH;
-    vec4 color = texture(uPalette, vec2(palU, palV));
-
-    // Handle transparency
-    bool STPoff = color.a != 0.0;
-    bool isBlack = color.r == 0.0 && color.g == 0.0 && color.b == 0.0;
-    if (!STPoff && isBlack) discard;
-    vec2 blend = blendModes[int(STPoff) * vBlendMode];
-
-    FragColor = blend.x * color;
-    BlendFact = vec4(blend.y);
-}   )";
-
-static const char* screenVertShader = R"(
-#version 330 core
-
-layout (location = 0) in vec2 aPos;
-layout (location = 1) in vec2 aTexCoord;
-out vec2 vTexCoord;
-
-uniform mat4 uProjection;
-
-void main()
-{
-    gl_Position = uProjection * vec4(aPos, 0.0, 1.0);
-    vTexCoord = aTexCoord;
-}   )";
-
-static const char* screenFragShader = R"(
-#version 330 core
-
-in vec2 vTexCoord;
-out vec4 FragColor;
-
-uniform sampler2D uScreenTexture;
-
-void main()
-{
-    FragColor = texture(uScreenTexture, vTexCoord);
-}   )";
+#include "../Graphics/Shader.h"
 
 /*  _____                                     _____  */
 /* ( ___ )                                   ( ___ ) */
@@ -134,12 +16,15 @@ void main()
 
 Drawer::Drawer()
     : _window(nullptr), _glContext(nullptr),
-      _mainShader(nullptr), _screenShader(nullptr), _frameBuffer(0),
+      _mainShader(nullptr), _overlayShader(nullptr), _screenShader(nullptr), _frameBuffer(0),
       _winW(0), _winH(0), _fullscreen(false), _aspectRatio(true) {}
 
 bool Drawer::Init()
 {
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) { fprintf(stderr, "SDL Initialization Error: %s\n", SDL_GetError()); return false; }
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) { 
+        fprintf(stderr, "SDL Initialization Error: %s\n", SDL_GetError()); 
+        return false; 
+    }
 
     // Request an OpenGL 3.3 Core context and create a resizable window
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -162,13 +47,12 @@ bool Drawer::Init()
     if (!CheckExtension("GL_ARB_blend_func_extended")) { printf("Dual-Source Blending is NOT supported on this GPU\n"); return false; }
 
     // Compile shaders
-    CompileShader(_mainShader, mainVertShader, mainFragShader);
-    CompileShader(_screenShader, screenVertShader, screenFragShader);
+    _mainShader = new Shader("Shaders/MainShader");
+    _screenShader = new Shader("Shaders/ScreenShader");
 
     // Set projections
     UpdateScreenProjection();
-    glUseProgram(_mainShader);
-    glUniformMatrix4fv(glGetUniformLocation(_mainShader, "uProjection"), 1, GL_FALSE, &_projection[0][0]);
+	_mainShader->uniformMat4("uProjection", _projection);
 
     // Create the framebuffer
     glGenFramebuffers(1, &_frameBuffer);
@@ -254,10 +138,10 @@ bool Drawer::Init()
     glBufferData(GL_ARRAY_BUFFER, _VBOSize, nullptr, GL_STREAM_DRAW);
 
     // Set locations
-    _screenLoc = glGetUniformLocation(_screenShader, "uScreenTexture");
-    _atlasLoc = glGetUniformLocation(_mainShader, "uAtlas");
-    _paletteLoc = glGetUniformLocation(_mainShader, "uPalette");
-    _ovrLoc = glGetUniformLocation(_mainShader, "uOverlay");
+    _screenLoc = glGetUniformLocation(_screenShader->getID(), "uScreenTexture");
+    _atlasLoc = glGetUniformLocation(_mainShader->getID(), "uAtlas");
+    _paletteLoc = glGetUniformLocation(_mainShader->getID(), "uPalette");
+    _ovrLoc = glGetUniformLocation(_mainShader->getID(), "uOverlay");
 
     // Define vertex attributes
     glEnableVertexAttribArray(0);
@@ -383,31 +267,6 @@ void Drawer::ClearQueues()
     _indexQueue.clear();
 }
 
-void Drawer::CompileShader(GLuint& shader, const char* vertShader, const char* fragShader)
-{
-    // Set the Vertex
-    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertShader, nullptr);
-    glCompileShader(vertexShader);
-    if (!CheckShaderCompile(vertexShader, "Vertex Shader")) fprintf(stderr, "Vertex shader failed to compile\n");
-    
-    // Set the Fragment
-    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragShader, nullptr);
-    glCompileShader(fragmentShader);
-    if (!CheckShaderCompile(fragmentShader, "Fragment Shader")) fprintf(stderr, "Fragment shader failed to compile\n");
-    
-    // Link to a Shader
-    shader = glCreateProgram();
-    glAttachShader(shader, vertexShader);
-    glAttachShader(shader, fragmentShader);
-    glLinkProgram(shader);
-    if (!CheckProgramLink(shader)) fprintf(stderr, "Shader program failed to link\n");
-
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-}
-
 void Drawer::ToggleFullscreen()
 {
     _fullscreen = !_fullscreen;
@@ -517,10 +376,10 @@ void Drawer::AddBatch(const Batch& b)
 
     size_t baseIndex = _drawQueue.size();
 
-    _drawQueue.push_back(Vertex { b.DstQuad.V0.X, b.DstQuad.V0.Y, u0, v0, b.Group, b.PalDex, b.BlendMode });
-    _drawQueue.push_back(Vertex { b.DstQuad.V1.X, b.DstQuad.V1.Y, u1, v0, b.Group, b.PalDex, b.BlendMode });
-    _drawQueue.push_back(Vertex { b.DstQuad.V2.X, b.DstQuad.V2.Y, u1, v1, b.Group, b.PalDex, b.BlendMode });
-    _drawQueue.push_back(Vertex { b.DstQuad.V3.X, b.DstQuad.V3.Y, u0, v1, b.Group, b.PalDex, b.BlendMode });
+    _drawQueue.push_back(Vertex{ static_cast<float>(b.DstQuad.V0.X), static_cast<float>(b.DstQuad.V0.Y), u0, v0, b.Group, b.PalDex, b.BlendMode });
+    _drawQueue.push_back(Vertex{ static_cast<float>(b.DstQuad.V1.X), static_cast<float>(b.DstQuad.V1.Y), u1, v0, b.Group, b.PalDex, b.BlendMode });
+    _drawQueue.push_back(Vertex{ static_cast<float>(b.DstQuad.V2.X), static_cast<float>(b.DstQuad.V2.Y), u1, v1, b.Group, b.PalDex, b.BlendMode });
+    _drawQueue.push_back(Vertex{ static_cast<float>(b.DstQuad.V3.X), static_cast<float>(b.DstQuad.V3.Y), u0, v1, b.Group, b.PalDex, b.BlendMode });
 
     // Add indices for the EBO
     _indexQueue.push_back(baseIndex + 0);

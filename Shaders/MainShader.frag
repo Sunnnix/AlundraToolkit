@@ -10,6 +10,7 @@ layout (location = 1) out vec4 BlendFact;
 
 uniform usampler2D uAtlas;
 uniform sampler2D uPalette;
+uniform vec4 uOverlay[4];
 
 const float invPalW = 1.0 / 96.0;
 const float invPalH = 1.0 / 32.0;
@@ -25,6 +26,21 @@ const vec2 blendModes[5] = vec2[]
 
 void main()
 {
+    // Overlay mode?
+    if (vGroup < 0)
+    {
+        vec2 uv  = vTexCoord;
+        vec4 top = mix(uOverlay[0], uOverlay[1], uv.x); // TL -> TR
+        vec4 bot = mix(uOverlay[2], uOverlay[3], uv.x); // BL -> BR
+        vec4 color = mix(top, bot, uv.y);
+        vec2 blend = blendModes[vBlendMode];
+
+        FragColor = blend.x * vec4(color.rgb, 1.0);
+        BlendFact = vec4(blend.y);
+
+        return;
+    }
+
     // Get the palette index
     float logicalX = vTexCoord.x * 256;
     int nibbleMask = int((logicalX - 2 * floor(logicalX * 0.5)) < 1.0);
@@ -38,9 +54,9 @@ void main()
     vec4 color = texture(uPalette, vec2(palU, palV));
 
     // Handle transparency
-    bool STPoff = color.a == 0.0;
+    bool STPoff = color.a != 0.0;
     bool isBlack = color.r == 0.0 && color.g == 0.0 && color.b == 0.0;
-    if (STPoff && isBlack) discard;
+    if (!STPoff && isBlack) discard;
     vec2 blend = blendModes[int(STPoff) * vBlendMode];
 
     FragColor = blend.x * color;

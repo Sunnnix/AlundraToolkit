@@ -10,6 +10,10 @@ private:
 public:
 	Shader(std::string path);
 
+	const int getID() const {
+		return ID;
+	}
+
 	void bind();
 	void uniformInt(std::string name, int value);
 	void uniformMat4(std::string name, const glm::mat4& matrix);
