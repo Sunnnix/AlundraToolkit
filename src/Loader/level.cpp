@@ -53,7 +53,7 @@ int Lining::Init(Drawer* drawer)
             _timerX[layerID]           = 0;
             _timerY[layerID]           = 0;
 
-            switch (_infos->LayerMode[layerID])
+            switch (_infos->ModeLayer[layerID])
             {
                 case 1 : InitScrollar(layerID); break;
                 case 2 : InitCellular(layerID); break;
@@ -129,7 +129,7 @@ int Lining::SetLining(int camPosX, int camPosY)
     {
         for (int layerID = 1; layerID >= 0; layerID--)
         {
-            switch (_infos->LayerMode[layerID])
+            switch (_infos->ModeLayer[layerID])
             {
                 case 1: primCount += SetScrollar(layerID, camPosX, camPosY); break;
                 case 2: primCount += SetCellular(layerID, camPosX, camPosY); break;
@@ -207,7 +207,7 @@ int Lining::SetScrollar(int layerID, int camPosX, int camPosY)
     const int subY  = (screenPosY & 15);
 
     // Base map (second scroll only if both layers are Scrollars)
-    const bool sndScroll = (_infos->LayerMode[0] == 1 && _infos->LayerMode[1] == 1) * layerID;
+    const bool sndScroll = (_infos->ModeLayer[0] == 1 && _infos->ModeLayer[1] == 1) * layerID;
     char* baseMap = (char*) (_data + _header->Graphics + 0x8100 + (sndScroll ? 0x960 : 0));
 
     // Visible Grid
@@ -668,7 +668,9 @@ void Level::DrawTile(Drawer* drawer, uint16_t texTile, Point pos)
         { pos.X, pos.Y + 16 },
     };
 
-    drawer->AddBatch(quad, rect, 2, pal, 0);
+    Batch batch {quad, rect, 2, (uint8_t) pal, 0};
+
+    drawer->AddBatch(batch);
 }
 
 void Level::UpdateTimers()

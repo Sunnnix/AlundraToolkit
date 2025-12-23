@@ -134,7 +134,7 @@ void main()
 
 Drawer::Drawer()
     : _window(nullptr), _glContext(nullptr),
-      _mainShader(nullptr), _screenShader(nullptr), _frameBuffer(0),
+      _mainShader(0), _screenShader(0), _frameBuffer(0),
       _winW(0), _winH(0), _fullscreen(false), _aspectRatio(true) {}
 
 bool Drawer::Init()
@@ -302,12 +302,12 @@ void Drawer::DrawFrame()
     // Bind the atlas to unit 0
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _atlasTexID);
-    _mainShader->uniformInt("uAtlas", 0);
+    glUniform1i(glGetUniformLocation(_mainShader, "uAtlas"), 0);
 
     // Bind the palette to unit 1
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, _palTexID);
-    _mainShader->uniformInt("uPalette", 1);
+    glUniform1i(glGetUniformLocation(_mainShader, "uPalette"), 1);
     
     // Overlay Setup
     if (_drawOvr) glUniform4fv(_ovrLoc, 4, _ovrColor);
@@ -367,8 +367,8 @@ void Drawer::DrawFrame()
     // Bind the frame to unit 0
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _frameTexID);
-    _screenShader->uniformInt("uScreenTexture", 0);
-    _screenShader->uniformInt("uPalette", 0);
+    glUniform1i(glGetUniformLocation(_screenShader, "uScreenTexture"), 0);
+    glUniform1i(glGetUniformLocation(_screenShader, "uPalette"), 0);
 
     // Render to the screen
     glBindVertexArray(_screenVAO);
@@ -505,7 +505,7 @@ void Drawer::UpdateScreenProjection()
     glm::mat4 projection = ortho * model;
 
     // Update projection uniform
-    _screenShader->uniformMat4("uProjection", projection);
+    glUniformMatrix4fv(glGetUniformLocation(_screenShader, "uProjection"), 1, GL_FALSE, &_projection[0][0]);
 }
 
 void Drawer::AddBatch(const Batch& b)
@@ -517,10 +517,10 @@ void Drawer::AddBatch(const Batch& b)
 
     size_t baseIndex = _drawQueue.size();
 
-    _drawQueue.push_back(Vertex { b.DstQuad.V0.X, b.DstQuad.V0.Y, u0, v0, b.Group, b.PalDex, b.BlendMode });
-    _drawQueue.push_back(Vertex { b.DstQuad.V1.X, b.DstQuad.V1.Y, u1, v0, b.Group, b.PalDex, b.BlendMode });
-    _drawQueue.push_back(Vertex { b.DstQuad.V2.X, b.DstQuad.V2.Y, u1, v1, b.Group, b.PalDex, b.BlendMode });
-    _drawQueue.push_back(Vertex { b.DstQuad.V3.X, b.DstQuad.V3.Y, u0, v1, b.Group, b.PalDex, b.BlendMode });
+    _drawQueue.push_back(Vertex { static_cast<float>(b.DstQuad.V0.X), static_cast<float>(b.DstQuad.V0.Y), u0, v0, b.Group, b.PalDex, b.BlendMode });
+    _drawQueue.push_back(Vertex { static_cast<float>(b.DstQuad.V1.X), static_cast<float>(b.DstQuad.V1.Y), u1, v0, b.Group, b.PalDex, b.BlendMode });
+    _drawQueue.push_back(Vertex { static_cast<float>(b.DstQuad.V2.X), static_cast<float>(b.DstQuad.V2.Y), u1, v1, b.Group, b.PalDex, b.BlendMode });
+    _drawQueue.push_back(Vertex { static_cast<float>(b.DstQuad.V3.X), static_cast<float>(b.DstQuad.V3.Y), u0, v1, b.Group, b.PalDex, b.BlendMode });
 
     // Add indices for the EBO
     _indexQueue.push_back(baseIndex + 0);
@@ -564,8 +564,8 @@ bool Drawer::CheckExtension(const char* extName)
 
 Drawer::~Drawer()
 {
-    if (_screenShader) delete _screenShader;
-    if (_mainShader) delete _mainShader;
+    if (_screenShader) glDeleteShader(_screenShader);
+    if (_mainShader) glDeleteShader(_mainShader);
     if (_frameTexID) glDeleteTextures(1, &_frameTexID);
     if (_atlasTexID) glDeleteTextures(1, &_atlasTexID);
     if (_palTexID) glDeleteTextures(1, &_palTexID);

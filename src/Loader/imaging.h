@@ -161,6 +161,8 @@ class Drawer
     /// Constructor
     Drawer();
 
+    SDL_GLContext* GetContext() { return &_glContext; }
+
     bool IsReady() { return _ready2Draw; };
     void SetReady(bool val) { _ready2Draw = val; };
 
