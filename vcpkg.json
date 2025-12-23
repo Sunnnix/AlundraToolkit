@@ -1,0 +1,23 @@
+{
+  "dependencies": [
+    {
+      "name": "sdl2",
+      "version>=": "2.32.2"
+    },
+    {
+      "name": "glew"
+    },
+    {
+      "name": "glm",
+      "version>=": "1.0.2"
+    },
+    {
+      "name": "imgui",
+      "version>=": "1.91.9",
+      "features": [ "docking-experimental", "opengl3-binding" ]
+    },
+    {
+      "name": "fluidsynth"
+    }
+  ]
+}

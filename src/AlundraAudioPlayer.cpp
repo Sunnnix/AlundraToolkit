@@ -208,7 +208,7 @@ namespace Alundra {
         }
 
 		void loadSOUND_BIN() {
-            std::ifstream file("SOUND.BIN", std::ios::binary);
+            std::ifstream file("test/SOUND.BIN", std::ios::binary);
             if (!file) {
                 fprintf(stderr, "SOUND.BIN couldn't be opened!\n");
                 return;
